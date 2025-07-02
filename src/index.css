@@ -1,0 +1,9 @@
+@import "tailwindcss/preflight";
+/* replaces @tailwind base */
+@import "tailwindcss/utilities";
+/* replaces @tailwind components + utilities */
+
+/* You can still add custom global CSS below */
+body {
+  background-color: aqua;
+}
