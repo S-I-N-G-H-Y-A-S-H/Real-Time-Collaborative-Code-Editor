@@ -1,14 +1,17 @@
-.welcome-wrapper {
-    min-height: 100vh;
+.welcome-container {
     background-color: #1e1e1e;
     color: white;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
-.welcome-content {
-    padding: 16px;
+.main-body {
+    display: flex;
+    flex: 1;
 }
 
-.welcome-title {
-    font-size: 24px;
-    font-weight: 600;
+.content-area {
+    flex: 1;
+    padding: 20px;
 }

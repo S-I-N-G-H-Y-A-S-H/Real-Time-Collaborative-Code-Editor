@@ -1,13 +1,18 @@
 import Header from '../components/Header';
+import Sidebar from '../components/Sidebar';
 import '../styles/WelcomePage.css';
+
 
 function WelcomePage() {
     return (
-        <div className="welcome-wrapper">
+        <div className="welcome-container">
             <Header />
-            <div className="welcome-content">
-                <h1 className="welcome-title">Welcome to Real-Time Code Editor</h1>
-                {/* Add more sections like recent projects, create new, etc. */}
+            <div className="main-body">
+                <Sidebar />
+                <div className="content-area">
+                    <h1>Welcome to Real-Time Code Editor</h1>
+                    {/* You can add more UI sections here */}
+                </div>
             </div>
         </div>
     );
