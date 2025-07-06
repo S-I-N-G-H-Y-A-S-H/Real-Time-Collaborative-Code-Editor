@@ -1,0 +1,84 @@
+.header-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background-color: #1e1e1e;
+    color: white;
+    border-bottom: 1px solid #333;
+}
+
+/* LEFT SECTION: Logo + Menu */
+.left-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+}
+
+.logo-circle {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+.menu-container {
+    display: flex;
+    gap: 16px;
+}
+
+.menu-item {
+    cursor: pointer;
+    transition: color 0.2s ease-in-out;
+}
+
+.menu-item:hover {
+    color: #74ff4e;
+}
+
+/* CENTER SECTION: Search bar */
+.center-section {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.search-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 280px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 12px 8px 32px;
+    /* ← push text to the right of icon */
+    border: 1px solid #444;
+    border-radius: 4px;
+    background-color: #2e2e2e;
+    color: white;
+    font-size: 13px;
+    text-align: left;
+    /* ← ensure placeholder aligns properly */
+}
+
+.search-input::placeholder {
+    color: #aaa;
+}
+
+.search-icon {
+    position: absolute;
+    left: 10px;
+    width: 15px;
+    height: 15px;
+    opacity: 0.6;
+    pointer-events: none;
+    /* don't block input clicks */
+}
+
+/* RIGHT SECTION: Empty for now */
+.right-section {
+    flex: 1;
+}

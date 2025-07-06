@@ -1,0 +1,14 @@
+.welcome-wrapper {
+    min-height: 100vh;
+    background-color: #1e1e1e;
+    color: white;
+}
+
+.welcome-content {
+    padding: 16px;
+}
+
+.welcome-title {
+    font-size: 24px;
+    font-weight: 600;
+}
