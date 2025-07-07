@@ -1,0 +1,37 @@
+.footer {
+    height: 30px;
+    background-color: #1e1e1e;
+    border-top: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-size: 12px;
+    color: #ccc;
+}
+
+.footer-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.footer-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.footer-icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    opacity: 0.7;
+    transition: filter 0.2s ease-in-out, opacity 0.2s;
+    cursor: pointer;
+}
+
+.footer-icon:hover {
+    opacity: 1;
+    filter: brightness(1.5) sepia(1) hue-rotate(60deg) saturate(8);
+}

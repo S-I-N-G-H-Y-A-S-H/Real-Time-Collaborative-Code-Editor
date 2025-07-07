@@ -1,17 +1,114 @@
-.welcome-container {
-    background-color: #1e1e1e;
-    color: white;
-    height: 100vh;
+/* Entire page container: vertical layout */
+.welcome-wrapper {
     display: flex;
     flex-direction: column;
+    height: 100vh;
+    background-color: #1e1e1e;
+    color: white;
 }
 
-.main-body {
+/* Sidebar + Main content */
+.body-layout {
     display: flex;
     flex: 1;
+    /* pushes footer to the bottom */
+    overflow: hidden;
 }
 
-.content-area {
+/* Main welcome body area (right of sidebar) */
+.welcome-body {
+    flex-grow: 1;
+    display: flex;
+    position: relative;
+    padding: 20px 40px;
+}
+
+/* ====== Left Section ====== */
+.welcome-left {
     flex: 1;
-    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.welcome-heading {
+    font-size: 1.8rem;
+    margin-bottom: 30px;
+}
+
+/* Start section */
+.start-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+/* Green Buttons with icons */
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background-color: #333;
+    border: 1px solid #555;
+    color: #74ff4e;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+    width: fit-content;
+}
+
+.action-btn:hover {
+    background-color: #444;
+}
+
+/* Icon next to New/Open/Open Folder */
+.action-icon {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+
+/* ====== Center Logo ====== */
+.welcome-logo-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.05;
+    pointer-events: none;
+    user-select: none;
+}
+
+.translucent-logo {
+    width: 350px;
+    height: auto;
+}
+
+/* ====== Right Buttons ====== */
+.welcome-right {
+    position: absolute;
+    right: 40px;
+    top: 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.invite-btn,
+.join-btn {
+    padding: 8px 14px;
+    background-color: #2e2e2e;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.invite-btn:hover,
+.join-btn:hover {
+    background-color: #3a3a3a;
 }
