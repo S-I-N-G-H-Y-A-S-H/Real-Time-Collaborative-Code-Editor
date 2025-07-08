@@ -1,11 +1,11 @@
 import logo from '../assets/logo.png';
 import searchIcon from '../assets/search-icon.png';
 import '../styles/Header.css';
+import '../styles/WelcomePage.css';
 
-function Header() {
+function Header({ onSearchClick }) {
     return (
         <div className="header-wrapper">
-
             {/* Left Section: Logo + Menu */}
             <div className="left-section">
                 <img src={logo} alt="Logo" className="logo-circle" />
@@ -21,19 +21,22 @@ function Header() {
 
             {/* Center Section: Search */}
             <div className="center-section">
-                <div className="search-wrapper">
+                <div className="search-wrapper" onClick={onSearchClick}>
                     <img src={searchIcon} alt="Search" className="search-icon" />
                     <input
                         type="text"
                         placeholder="Search"
                         className="search-input"
+                        readOnly // Prevent keyboard entry
                     />
                 </div>
             </div>
 
-            {/* Right Section: (empty for now) */}
-            <div className="right-section"></div>
-
+            {/* Right Section */}
+            <div className="right-section">
+                <button className="invite-btn">Invite</button>
+                <button className="join-btn">Join</button>
+            </div>
         </div>
     );
 }

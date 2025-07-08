@@ -4,15 +4,14 @@
 /* replaces @tailwind components + utilities */
 
 /* You can still add custom global CSS below */
-body {
-    color: white;
-}
 
 html,
 body {
+    color: white;
     margin: 0;
     padding: 0;
     height: 100vh;
     overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif;
     /* 🔒 prevents scrollbars */
 }

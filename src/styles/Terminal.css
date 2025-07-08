@@ -1,0 +1,21 @@
+.terminal-container {
+    height: 250px;
+    width: 100%;
+    background-color: #1e1e1e;
+    border-top: 1px solid #333;
+    overflow: hidden;
+}
+
+/* Dark scrollbar styling */
+.terminal-container ::-webkit-scrollbar {
+    width: 10px;
+}
+
+.terminal-container ::-webkit-scrollbar-thumb {
+    background-color: #444;
+    border-radius: 4px;
+}
+
+.terminal-container ::-webkit-scrollbar-track {
+    background-color: #1e1e1e;
+}

@@ -1,0 +1,30 @@
+.editor-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: #1e1e1e;
+}
+
+.editor-body {
+    display: flex;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.editor-main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+
+.code-section {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.terminal-section {
+    height: 250px;
+    border-top: 1px solid #333;
+    background-color: #1e1e1e;
+}
