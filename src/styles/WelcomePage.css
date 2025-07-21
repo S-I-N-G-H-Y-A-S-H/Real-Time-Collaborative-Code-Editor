@@ -108,8 +108,3 @@
     transition: background 0.2s;
     margin-right: 10px;
 }
-
-.invite-btn:hover,
-.join-btn:hover {
-    background-color: #3a3a3a;
-}

@@ -17,6 +17,17 @@
     flex-direction: column;
 }
 
+.editor-header-bar {
+    background-color: #2a2a2a;
+    padding: 8px 12px;
+    color: #74ff4e;
+    font-weight: bold;
+    border-bottom: 1px solid #333;
+}
+
+.editor-filename {
+    font-size: 16px;
+}
 
 .code-section {
     flex-grow: 1;
@@ -27,4 +38,23 @@
     height: 250px;
     border-top: 1px solid #333;
     background-color: #1e1e1e;
+}
+
+.no-file-message {
+    color: #aaa;
+    text-align: center;
+    margin-top: 100px;
+}
+.close-tab-icon {
+    width: 24px;
+    height: 24px;
+    margin-left: 8px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.close-tab-icon:hover {
+    opacity: 1;
+    
 }

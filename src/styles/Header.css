@@ -83,3 +83,8 @@
 .right-section {
     flex: 1;
 }
+
+.invite-btn:hover,
+.join-btn:hover {
+    background-color: #3a3a3a;
+}

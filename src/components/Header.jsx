@@ -1,7 +1,7 @@
 import logo from '../assets/logo.png';
 import searchIcon from '../assets/search-icon.png';
 import '../styles/Header.css';
-import '../styles/WelcomePage.css';
+
 
 function Header({ onSearchClick }) {
     return (
