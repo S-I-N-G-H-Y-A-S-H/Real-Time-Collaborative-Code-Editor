@@ -1,0 +1,155 @@
+/* src/styles/Login.css */
+
+.login-wrapper {
+  min-height: 100vh;
+  padding: 100px 20px 40px; /* push the box slightly downward */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: url('../assets/bg.jpg') no-repeat center center fixed;
+  background-size: cover;
+  position: relative;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* header logo top-left */
+.login-wrapper .auth-header {
+  position: absolute;
+  top: 18px;
+  left: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 5;
+}
+.login-wrapper .logo-img { width: 46px; height: 46px; }
+.login-wrapper .logo-text { color: #3b82f6; font-weight: 700; font-size: 28px; }
+
+/* card */
+.login-wrapper .auth-box {
+  background-color: rgba(0, 0, 0, 0.85);
+  padding: 28px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
+}
+
+/* headings */
+.login-wrapper .auth-title {
+  margin: 0;
+  margin-bottom: 6px;
+  font-size: 22px;
+  color: #ffffff;
+  text-align: center;
+}
+.login-wrapper .auth-subtitle {
+  font-size: 13px;
+  color: #cbd5e1;
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+/* form */
+.login-wrapper .auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-wrapper label {
+  font-size: 14px;
+  color: #f1f5f9;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* inputs */
+.login-wrapper input {
+  padding: 12px 14px;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  color: white;
+  background-color: #1e293b;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.login-wrapper input::placeholder {
+  color: #94a3b8;
+}
+
+.login-wrapper input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+/* password show/positioning */
+.login-wrapper .password-input-wrapper { position: relative; }
+.login-wrapper .password-input-wrapper input { padding-right: 74px; }
+
+.login-wrapper .password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  height: 32px;
+  padding: 6px 10px;
+  font-size: 13px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.login-wrapper .password-toggle:hover {
+  background-color: #2563eb;
+}
+
+/* forgot link */
+.login-wrapper .forgot-password {
+  font-size: 13px;
+  margin-top: -6px;
+  text-align: right;
+}
+.login-wrapper .forgot-password a {
+  color: #60a5fa;
+  text-decoration: none;
+}
+.login-wrapper .forgot-password a:hover {
+  text-decoration: underline;
+}
+
+/* submit */
+.login-wrapper button[type="submit"] {
+  margin-top: 6px;
+  padding: 12px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* bottom text */
+.login-wrapper .auth-bottom-text {
+  text-align: center;
+  color: #cbd5e1;
+  font-size: 13px;
+  margin-top: 6px;
+}
+.login-wrapper .auth-bottom-text a { color: #60a5fa; text-decoration: none; font-weight: 500; }
+.login-wrapper .auth-bottom-text a:hover { text-decoration: underline; }
+
+/* responsive tweaks */
+@media (max-width: 480px) {
+  .login-wrapper { padding-top: 40px; align-items: center; }
+  .login-wrapper .auth-box { padding: 20px; max-width: 92%; }
+  .login-wrapper .logo-text { font-size: 20px; }
+}
