@@ -1,11 +1,34 @@
 // src/pages/LoginPage.jsx
 import '../styles/Login.css';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { useState } from 'react';
+import API from '../api'; //  import API helper
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.id.replace('login-', '')]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await API.post('/auth/login', form);
+      localStorage.setItem('token', res.data.token); // save JWT
+      setError('');
+      setMessage('Login successful. Redirecting...');
+      setTimeout(() => navigate('/welcome'), 1200); // redirect to WelcomePage
+    } catch (err) {
+      setMessage('');
+      setError(err.response?.data?.error || 'Login failed');
+    }
+  };
 
   return (
     <div className="login-wrapper">
@@ -18,12 +41,14 @@ const LoginPage = () => {
         <h1 className="auth-title">Welcome Back</h1>
         <p className="auth-subtitle">Login to your account to continue</p>
 
-        <form className="auth-form">
+        <form className="auth-form" onSubmit={handleSubmit}>
           <label htmlFor="login-email">Email</label>
           <input
             id="login-email"
             type="email"
             placeholder="Enter your email"
+            value={form.email}
+            onChange={handleChange}
             required
           />
 
@@ -33,6 +58,8 @@ const LoginPage = () => {
               id="login-password"
               type={showPassword ? 'text' : 'password'}
               placeholder="Enter your password"
+              value={form.password}
+              onChange={handleChange}
               required
             />
             <button
@@ -43,6 +70,9 @@ const LoginPage = () => {
               {showPassword ? 'Hide' : 'Show'}
             </button>
           </div>
+
+          {error && <p className="error-text">{error}</p>}
+          {message && <p className="success-text">{message}</p>}
 
           <p className="forgot-password">
             <a href="#">Forgot Password?</a>

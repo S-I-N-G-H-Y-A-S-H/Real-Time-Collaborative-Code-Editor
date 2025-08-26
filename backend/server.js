@@ -4,6 +4,8 @@ const cors = require("cors");
 require("dotenv").config();
 const connectDB = require("./config/db");
 
+const authRoutes = require("./routes/authRoutes");
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -11,17 +13,15 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Connect DB and start server
+// Routes
+app.use("/api/auth", authRoutes);
+
+// Start server
 (async () => {
   try {
     await connectDB();
-
-    // ⬇️ Add your real routes here (e.g., users, files, auth)
-    // app.use("/api/users", require("./routes/userRoutes"));
-    // app.use("/api/files", require("./routes/fileRoutes"));
-
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`Server running on http://localhost:${PORT}`);
     });
   } catch (err) {
     console.error(err);

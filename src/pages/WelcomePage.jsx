@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFile } from '../context/FileContext';
 
@@ -18,6 +18,16 @@ function WelcomePage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
     const { setCurrentFile } = useFile();
+
+    // 🔒 Redirect to login if no token
+    useEffect(() => {
+        
+        const token = localStorage.getItem("token");
+        if (!token) {
+            navigate("/login");
+        }
+        
+    }, [navigate]);
 
     const handleNewFileClick = () => {
         setIsModalOpen(true);

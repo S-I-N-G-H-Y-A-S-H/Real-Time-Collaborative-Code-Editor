@@ -1,24 +1,39 @@
 // src/pages/SignupPage.jsx
 import '../styles/Signup.css';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { useState } from 'react';
+import API from '../api'; // 👈 import API helper
 
 const SignupPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [password, setPassword] = useState('');
+  const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.id.replace('signup-', '')]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
+    if (form.password !== confirmPassword) {
       setError('Passwords do not match');
-    } else {
+      return;
+    }
+
+    try {
+      const res = await API.post('/auth/signup', form);
+      localStorage.setItem('token', res.data.token); // save JWT
       setError('');
-      alert('Signed up successfully!');
-      // add real signup logic here
+      setMessage("Successfully Signed Up Redirecting...");
+      setTimeout(() => navigate('/welcome'), 1500); // redirect to WelcomePage
+    } catch (err) {
+      setMessage('');
+      setError(err.response?.data?.error || 'Signup failed');
     }
   };
 
@@ -39,6 +54,8 @@ const SignupPage = () => {
             id="signup-username"
             type="text"
             placeholder="Enter your username"
+            value={form.username}
+            onChange={handleChange}
             required
           />
 
@@ -47,6 +64,8 @@ const SignupPage = () => {
             id="signup-email"
             type="email"
             placeholder="Enter your email"
+            value={form.email}
+            onChange={handleChange}
             required
           />
 
@@ -56,8 +75,8 @@ const SignupPage = () => {
               id="signup-password"
               type={showPassword ? 'text' : 'password'}
               placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={form.password}
+              onChange={handleChange}
               required
             />
             <button
@@ -90,6 +109,7 @@ const SignupPage = () => {
           </div>
 
           {error && <p className="error-text">{error}</p>}
+          {message && <p className="success-text">{message}</p>}
 
           <button type="submit">Sign Up</button>
 
