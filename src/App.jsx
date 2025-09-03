@@ -3,6 +3,8 @@ import WelcomePage from "./pages/WelcomePage";
 import EditorPage from "./pages/EditorPage";
 import SignupPage from "./pages/SignupPage";
 import LoginPage from "./pages/LoginPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 // Helper component for protecting routes
 const ProtectedRoute = ({ children }) => {
@@ -25,6 +27,8 @@ function App() {
         {/* Auth routes */}
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected routes */}
         <Route

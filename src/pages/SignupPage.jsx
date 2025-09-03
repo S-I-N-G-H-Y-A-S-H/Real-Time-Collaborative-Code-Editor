@@ -1,9 +1,9 @@
 // src/pages/SignupPage.jsx
 import '../styles/Signup.css';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { useState } from 'react';
-import API from '../api'; // 👈 import API helper
+import API from '../api';
 
 const SignupPage = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -12,7 +12,6 @@ const SignupPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.id.replace('signup-', '')]: e.target.value });
@@ -26,11 +25,11 @@ const SignupPage = () => {
     }
 
     try {
-      const res = await API.post('/auth/signup', form);
-      localStorage.setItem('token', res.data.token); // save JWT
+      await API.post('/auth/signup', form);
       setError('');
-      setMessage("Successfully Signed Up Redirecting...");
-      setTimeout(() => navigate('/welcome'), 1500); // redirect to WelcomePage
+      setMessage(
+        'Signup successful! Please check your email inbox to verify your account.'
+      );
     } catch (err) {
       setMessage('');
       setError(err.response?.data?.error || 'Signup failed');

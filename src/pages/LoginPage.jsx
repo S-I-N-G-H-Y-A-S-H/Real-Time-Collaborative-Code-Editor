@@ -3,7 +3,7 @@ import '../styles/Login.css';
 import { Link, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { useState } from 'react';
-import API from '../api'; //  import API helper
+import API from '../api';
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -20,13 +20,17 @@ const LoginPage = () => {
     e.preventDefault();
     try {
       const res = await API.post('/auth/login', form);
-      localStorage.setItem('token', res.data.token); // save JWT
+      localStorage.setItem('token', res.data.token);
       setError('');
       setMessage('Login successful. Redirecting...');
-      setTimeout(() => navigate('/welcome'), 1200); // redirect to WelcomePage
+      setTimeout(() => navigate('/welcome'), 1200);
     } catch (err) {
       setMessage('');
-      setError(err.response?.data?.error || 'Login failed');
+      if (err.response?.status === 403) {
+        setError('Please verify your email before logging in.');
+      } else {
+        setError(err.response?.data?.error || 'Login failed');
+      }
     }
   };
 
@@ -75,7 +79,7 @@ const LoginPage = () => {
           {message && <p className="success-text">{message}</p>}
 
           <p className="forgot-password">
-            <a href="#">Forgot Password?</a>
+            <Link to="/forgot-password">Forgot Password?</Link>
           </p>
 
           <button type="submit">Log In</button>
