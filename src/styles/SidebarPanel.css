@@ -1,0 +1,10 @@
+/* src/styles/SidebarPanel.css */
+.sidebar-panel {
+  width: 250px;
+  background: #1e1e1e; /* match VS Code dark theme */
+  color: #fff;
+  height: 100%;
+  padding: 10px;
+  overflow-y: auto;
+  border-right: 1px solid #333;
+}

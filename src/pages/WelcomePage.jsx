@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFile } from '../context/FileContext';
+import { useSidebar } from '../context/SidebarContext';
 
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
+import SidebarPanel from '../components/SidebarPanel';
 import Footer from '../components/Footer';
 import NewFileModal from '../components/NewFileModal';
 
@@ -12,52 +14,32 @@ import newFileIcon from '../assets/new-file.png';
 import openFileIcon from '../assets/open-file.png';
 import openFolderIcon from '../assets/open-folder.png';
 
+// ✅ only import file-related functions (not openFolder)
+import { createFile, openFile } from '../services/FileSystem';
+
 import '../styles/WelcomePage.css';
 
 function WelcomePage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
-    const { setCurrentFile } = useFile();
+    const { setCurrentFile, openFolder } = useFile(); // ✅ use openFolder from context
+    const { isVisible } = useSidebar();
 
     // 🔒 Redirect to login if no token
     useEffect(() => {
-        
         const token = localStorage.getItem("token");
         if (!token) {
             navigate("/login");
         }
-        
     }, [navigate]);
 
-    const handleNewFileClick = () => {
-        setIsModalOpen(true);
-    };
+    const handleNewFileClick = () => setIsModalOpen(true);
 
     const handleCreateNewFile = async (fileName) => {
         setIsModalOpen(false);
-
         try {
-            const handle = await window.showSaveFilePicker({
-                suggestedName: fileName,
-                types: [{
-                    description: 'Code files',
-                    accept: { 'text/plain': ['.js', '.py', '.txt', '.html', '.css', '.java'] },
-                }],
-            });
-
-            const writable = await handle.createWritable();
-            await writable.write(""); // write empty content
-            await writable.close();
-
-            const file = await handle.getFile();
-            const content = await file.text();
-
-            setCurrentFile({
-                fileName: file.name,
-                fileContent: content,
-                fileHandle: handle,
-            });
-
+            const fileData = await createFile(fileName);
+            setCurrentFile(fileData);
             navigate('/editor');
         } catch (err) {
             console.error("File creation cancelled or failed:", err);
@@ -66,16 +48,8 @@ function WelcomePage() {
 
     const handleOpenFile = async () => {
         try {
-            const [fileHandle] = await window.showOpenFilePicker();
-            const file = await fileHandle.getFile();
-            const content = await file.text();
-
-            setCurrentFile({
-                fileName: file.name,
-                fileContent: content,
-                fileHandle: fileHandle,
-            });
-
+            const fileData = await openFile();
+            setCurrentFile(fileData);
             navigate('/editor');
         } catch (err) {
             console.error("File open cancelled or failed:", err);
@@ -84,16 +58,8 @@ function WelcomePage() {
 
     const handleOpenFolder = async () => {
         try {
-            const dirHandle = await window.showDirectoryPicker();
-            const files = [];
-
-            for await (const entry of dirHandle.values()) {
-                if (entry.kind === 'file') {
-                    files.push(entry.name);
-                }
-            }
-
-            alert(`Files in selected folder:\n${files.join('\n')}`);
+            await openFolder(); // ✅ consistent with Sidebar
+            navigate('/editor'); // ✅ go straight to editor
         } catch (err) {
             console.error("Folder open cancelled or failed:", err);
         }
@@ -105,13 +71,12 @@ function WelcomePage() {
 
             <div className="body-layout">
                 <Sidebar />
+                {isVisible && <SidebarPanel />}
 
                 <div className="welcome-body">
                     {/* Left Section */}
                     <div className="welcome-left">
-                        <h1 className="welcome-heading">
-                            Welcome to Code Sync
-                        </h1>
+                        <h1 className="welcome-heading">Welcome to Code Sync</h1>
 
                         <div className="start-section">
                             <h3 style={{ color: '#74ff4e' }}>Start</h3>
@@ -139,9 +104,7 @@ function WelcomePage() {
                     </div>
 
                     {/* Right Side Options */}
-                    <div className="welcome-right">
-                        {/*empty for now*/}
-                    </div>
+                    <div className="welcome-right">{/* empty for now */}</div>
                 </div>
             </div>
 

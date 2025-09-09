@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import '../styles/NewFileModal.css'; // we’ll create this next
+import '../styles/NewFileModal.css';
 
 function NewFileModal({ onCreate, onClose }) {
     const [fileName, setFileName] = useState('');
 
     const handleCreate = () => {
         if (fileName.trim() === '') return;
-        onCreate(fileName.trim());
+        onCreate(fileName.trim()); // stays the same
     };
 
     return (

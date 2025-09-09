@@ -1,5 +1,7 @@
 .sidebar {
     width: 50px;
+    min-width: 50px;   /* ✅ prevent shrinking */
+    max-width: 50px;
     background-color: #252526;
     height: 100vh;
     display: flex;
@@ -7,6 +9,8 @@
     align-items: center;
     padding: 10px 0;
     border-right: 1px solid #333;
+    position: relative; /* allow expanded panel */
+    z-index: 2; /* ✅ stays above tabs/editor */
 }
 
 .sidebar-section {
@@ -15,9 +19,7 @@
     gap: 20px;
     align-items: center;
     flex-grow: 1;
-    /* allow it to expand */
     overflow-y: auto;
-    /* optional if you want to scroll icons if there are too many */
 }
 
 .sidebar-section.bottom {
@@ -27,7 +29,6 @@
     align-items: center;
     padding-bottom: 12px;
     margin-top: 120px;
-    /* No margin-bottom needed anymore */
 }
 
 .sidebar-icon {
@@ -42,6 +43,229 @@
 }
 
 .sidebar-icon:hover {
-    filter: brightness(1.5) sepia(1) hue-rotate(60deg) saturate(8);
+    filter: brightness(1.5) sepia(1) hue-rotate(160deg) saturate(4);
     opacity: 1;
+}
+
+.sidebar-icon.active {
+    filter: none;
+    opacity: 1;
+    background-color: #333; /* subtle dark highlight */
+    border-left: 3px solid #74ff4e; /* neon green accent bar */
+    border-radius: 4px; /* soften edges */
+    padding: 4px; /* so highlight looks clean */
+}
+
+.sidebar-expanded {
+    position: absolute;
+    top: 0;
+    left: 50px;
+    width: 250px;       /* ✅ fixed width */
+    min-width: 250px;
+    max-width: 250px;
+    height: 100%;
+    background-color: #1a1a1a;
+    border-right: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    z-index: 2; /* ✅ above tab bar/editor */
+}
+
+/* Text on top */
+.explorer-empty-text {
+    color: #bbb;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+/* 🔥 Open Folder Button styled to match your theme */
+.sidebar-expanded button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background-color: #333;
+    border: 1px solid #555;
+    color: #74ff4e; /* neon green accent */
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+    width: fit-content;
+}
+
+.sidebar-expanded button:hover {
+    background-color: #444;
+}
+
+.no-folder-text {
+  margin-top: 15px;
+  margin-left: 10px;
+  color: #bbb;
+  font-size: 14px;
+}
+
+.open-folder-btn{
+  margin-top: 20px;
+  margin-left: 20px;
+}
+/* icon inside button */
+.open-folder-btn .btn-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+/* ✅ Scrollable project tree */
+.project-tree {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  font-size: 14px;
+  color: #ddd;
+  margin-top: 8px;
+}
+
+/* optional: slim scrollbar */
+.project-tree::-webkit-scrollbar {
+  width: 6px;
+}
+.project-tree::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+.project-tree::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+/* ====== Folder Styles ====== */
+.folder-item {
+  margin-left: 10px;
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 2px 6px;
+  user-select: none;
+}
+
+.folder-toggle-icon {
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  opacity: 0.85;
+}
+
+/* Folder name text (truncate long names) */
+.folder-header span {
+  color: #ccc;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder-header:hover {
+  background-color: #2a2d2e;
+}
+
+.folder-children {
+  margin-left: 16px;
+  border-left: 1px solid #333;
+  padding-left: 6px;
+}
+
+/* ====== File Styles ====== */
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 24px; /* indent to align with folder toggle */
+  cursor: pointer;
+  border-radius: 3px;
+  user-select: none;
+}
+
+.file-item:hover {
+  background-color: #333;
+  color: #74ff4e;
+}
+
+.file-item.active-file {
+  background-color: #2a2d2e;
+  color: #ffffff;
+}
+
+.file-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* File name text (truncate long names) */
+.file-item span {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ====== Explorer Header (fixed row) ====== */
+.explorer-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid #333;
+  overflow: hidden;
+  gap: 8px;
+}
+
+.project-name {
+  flex: 1; /* ✅ fills space between toggle and actions */
+  margin-left: 4px;
+  font-size: 0.95rem;
+  color: #ddd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explorer-actions {
+  display: flex;
+  flex-shrink: 0; /* ✅ icons never shrink */
+  gap: 8px;
+}
+
+.explorer-icon {
+  width: 25px;
+  height: 22px;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.explorer-icon:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* Tabs (top of editor, not sidebar but included in same file) */
+.tab {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    background-color: #2c2c2c;
+    margin-right: 4px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    cursor: pointer;    
+    user-select: none;
 }

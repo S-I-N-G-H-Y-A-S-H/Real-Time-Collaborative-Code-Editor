@@ -1,0 +1,50 @@
+/* src/styles/ProjectTree.css */
+
+.project-tree {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.project-tree-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #1a1a1a;
+  border-bottom: 1px solid #333;
+  padding: 6px 10px;
+}
+
+.project-tree-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.project-folder-name {
+  color: #ddd;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.project-tree-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tree-icon {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.tree-icon:hover {
+  opacity: 1;
+}
+
+.project-tree-body {
+  padding: 10px;
+}
