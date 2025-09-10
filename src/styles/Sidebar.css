@@ -269,3 +269,13 @@
     cursor: pointer;    
     user-select: none;
 }
+/* highlight selected folder */
+.folder-header.selected-folder {
+  background-color: #094771; /* vscode-like faint blue highlight */
+  color: #fff;
+}
+
+.folder-header.selected-folder span {
+  color: #fff;
+}
+

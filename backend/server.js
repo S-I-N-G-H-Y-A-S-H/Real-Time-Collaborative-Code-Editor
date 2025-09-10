@@ -6,6 +6,8 @@ const bodyParser = require("body-parser");
 require("dotenv").config();
 
 const authRoutes = require("./routes/authRoutes");
+const executeRoutes = require("./routes/execute"); // <-- NEW
+
 const User = require("./models/User");
 
 const app = express();
@@ -17,6 +19,7 @@ app.use(bodyParser.json());
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/execute", executeRoutes); // <-- NEW
 
 // --- Cleanup Logic ---
 const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour in ms

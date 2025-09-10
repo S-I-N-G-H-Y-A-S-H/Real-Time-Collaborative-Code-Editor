@@ -1,78 +1,145 @@
-import { useEffect, useRef } from 'react';
-import { Terminal } from 'xterm';
-import { FitAddon } from 'xterm-addon-fit';
-import 'xterm/css/xterm.css';
-import '../styles/Terminal.css';
+import { useEffect, useRef } from "react";
+import { Terminal } from "xterm";
+import { FitAddon } from "xterm-addon-fit";
+import "xterm/css/xterm.css";
+import "../styles/Terminal.css";
 
-function TerminalComponent() {
-    const terminalRef = useRef(null);
-    const xterm = useRef(null);
-    const fitAddon = useRef(null);
-    const inputBuffer = useRef('');
+import { runCode } from "../api/execution";
+import getLanguageFromFilename from "../utils/getLanguageFromFilename";
+import { useFile } from "../context/FileContext";
 
-    useEffect(() => {
-        const initTerminal = () => {
-            if (!terminalRef.current || xterm.current) return;
+function TerminalComponent({ refExecute }) {
+  const terminalRef = useRef(null);
+  const xterm = useRef(null);
+  const fitAddon = useRef(null);
+  const inputBuffer = useRef("");
 
-            // Init xterm and fit
-            xterm.current = new Terminal({
-                cursorBlink: true,
-                fontFamily: 'monospace',
-                fontSize: 14,
-                theme: {
-                    background: '#1e1e1e',
-                    foreground: '#ffffff',
-                },
-                scrollback: 1000,
-            });
+  const { currentFile } = useFile();
 
-            fitAddon.current = new FitAddon();
-            xterm.current.loadAddon(fitAddon.current);
-            xterm.current.open(terminalRef.current);
-            fitAddon.current.fit();
+  const printLine = (text = "") => {
+    xterm.current?.writeln(text);
+  };
 
-            // Focus to allow typing
-            xterm.current.focus();
+  const executeFile = async (filename, source) => {
+    const langInfo = getLanguageFromFilename(filename);
 
-            xterm.current.writeln('Welcome to the terminal!');
-            xterm.current.write('>');
+    if (!langInfo || !langInfo.execLang) {
+      printLine(`⚠️ This file type cannot be executed: ${filename}`);
+      return;
+    }
 
-            xterm.current.onData(data => {
-                const char = data.charCodeAt(0);
+    try {
+      printLine(`\r\n[Running ${filename} in ${langInfo.name}]`);
 
-                if (char === 13) {
-                    // ENTER
-                    xterm.current.write('\r\n>');
-                    inputBuffer.current = '';
-                } else if (char === 127) {
-                    // BACKSPACE
-                    if (inputBuffer.current.length > 0) {
-                        inputBuffer.current = inputBuffer.current.slice(0, -1);
-                        xterm.current.write('\b \b');
-                    }
-                } else {
-                    inputBuffer.current += data;
-                    xterm.current.write(data);
-                }
-            });
+      const result = await runCode(langInfo.execLang, source, "");
 
-            // Refit on resize
-            const handleResize = () => fitAddon.current?.fit();
-            window.addEventListener('resize', handleResize);
+      if (result.error) {
+        printLine(`Error: ${result.error}`);
+        return;
+      }
+      if (result.compileError) {
+        printLine("Compilation Error:");
+        if (result.stderr) printLine(result.stderr);
+        if (result.stdout) printLine(result.stdout);
+        return;
+      }
+      if (result.timedOut) {
+        printLine("Execution timed out.");
+      }
+      if (result.stdout) printLine(`Output:\n${result.stdout}`);
+      if (result.stderr) printLine(`Errors:\n${result.stderr}`);
+      if (!result.stdout && !result.stderr) {
+        printLine("[No output]");
+      }
+    } catch (err) {
+      printLine(`Execution failed: ${err.message}`);
+    }
+  };
 
-            return () => {
-                window.removeEventListener('resize', handleResize);
-                xterm.current?.dispose();
-                fitAddon.current = null;
-                xterm.current = null;
-            };
-        };
+  // Expose executeFile to parent (EditorPage)
+  useEffect(() => {
+    if (typeof refExecute === "function") {
+      refExecute(executeFile);
+    }
+  }, [refExecute]);
 
-        setTimeout(initTerminal, 0); // Ensure DOM has rendered before mounting
+  useEffect(() => {
+    const initTerminal = () => {
+      if (!terminalRef.current || xterm.current) return;
 
-    }, []);
+      xterm.current = new Terminal({
+        cursorBlink: true,
+        fontFamily: "monospace",
+        fontSize: 14,
+        theme: {
+          background: "#1e1e1e",
+          foreground: "#ffffff",
+        },
+        scrollback: 1000,
+      });
 
-    return <div ref={terminalRef} className="terminal-container" />;
+      fitAddon.current = new FitAddon();
+      xterm.current.loadAddon(fitAddon.current);
+      xterm.current.open(terminalRef.current);
+      fitAddon.current.fit();
+
+      xterm.current.focus();
+
+      xterm.current.writeln("Welcome to the terminal!");
+      xterm.current.write(">");
+
+      xterm.current.onData((data) => {
+        const char = data.charCodeAt(0);
+
+        if (char === 13) {
+          // ENTER
+          const command = inputBuffer.current.trim();
+          xterm.current.write("\r\n");
+
+          if (
+            command.startsWith("python") ||
+            command.startsWith("gcc") ||
+            command.startsWith("g++") ||
+            command.startsWith("javac")
+          ) {
+            if (currentFile) {
+              executeFile(currentFile.fileName, currentFile.fileContent);
+            } else {
+              printLine("No active file open.");
+            }
+          } else if (command) {
+            printLine(`Unknown command: ${command}`);
+          }
+
+          inputBuffer.current = "";
+          xterm.current.write(">");
+        } else if (char === 127) {
+          // BACKSPACE
+          if (inputBuffer.current.length > 0) {
+            inputBuffer.current = inputBuffer.current.slice(0, -1);
+            xterm.current.write("\b \b");
+          }
+        } else {
+          inputBuffer.current += data;
+          xterm.current.write(data);
+        }
+      });
+
+      const handleResize = () => fitAddon.current?.fit();
+      window.addEventListener("resize", handleResize);
+
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        xterm.current?.dispose();
+        fitAddon.current = null;
+        xterm.current = null;
+      };
+    };
+
+    setTimeout(initTerminal, 0);
+  }, [currentFile]);
+
+  return <div ref={terminalRef} className="terminal-container" />;
 }
 
 export default TerminalComponent;

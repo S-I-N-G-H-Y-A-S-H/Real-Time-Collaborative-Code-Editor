@@ -1,5 +1,7 @@
+// src/components/Tabs.jsx
 import { useFile } from "../context/FileContext";
 import closeIcon from "../assets/close-tab.png";
+import dirtyDot from "../assets/dirty-dot.png"; // placeholder white-dot asset
 import "../styles/Tabs.css";
 import { getFileIcon } from "../utils/fileIcons";
 import { useRef, useEffect } from "react";
@@ -72,6 +74,12 @@ function Tabs() {
           >
             <img src={getFileIcon(file.fileName)} alt="File Icon" className="tab-file-icon" />
             <span className="tab-filename">{file.fileName}</span>
+
+            {/* Dirty dot shown next to filename when modified */}
+            {file.modified && (
+              <img src={dirtyDot} alt="Unsaved changes" className="dirty-dot" />
+            )}
+
             <img
               src={closeIcon}
               alt="Close Tab"

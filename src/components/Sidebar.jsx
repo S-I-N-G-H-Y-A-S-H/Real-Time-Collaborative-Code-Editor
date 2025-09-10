@@ -12,13 +12,12 @@ import sourceControl from "../assets/source-control-icon.png";
 import runAndDebug from "../assets/run-and-debug-icon.png";
 import folderIcon from "../assets/open-folder.png";
 
-import collapseIcon from "../assets/collapseIcon.png";   // ˅
-import unCollapseIcon from "../assets/unCollapsed.png";  // >
+import collapseIcon from "../assets/collapseIcon.png";
+import unCollapseIcon from "../assets/unCollapsed.png";
 import newFileIcon from "../assets/newFile.png";
 import newFolderIcon from "../assets/newFolder.png";
 import refreshIcon from "../assets/refreshExplorer.png";
 
-// File type icons (centralized)
 import { getFileIcon } from "../utils/fileIcons";
 
 import "../styles/Sidebar.css";
@@ -35,6 +34,9 @@ function Sidebar() {
     refreshProjectTree,
     currentFile,
     rootFolderName,
+    setSelectedFolder,
+    selectedFolder,
+    dirHandle,
   } = useFile();
   const navigate = useNavigate();
 
@@ -74,7 +76,7 @@ function Sidebar() {
     }));
   };
 
-  // 🔽 Recursive Renderer for Tree
+  // Recursive Renderer for Tree
   const renderTree = (nodes, parentPath = "") => {
     return nodes.map((node) => {
       const fullPath = `${parentPath}/${node.name}`;
@@ -87,7 +89,10 @@ function Sidebar() {
           <div
             key={fullPath}
             className={`file-item ${isActive ? "active-file" : ""}`}
-            onClick={() => openFileFromTree(node.handle)}
+            onClick={() => {
+              openFileFromTree(node.handle);
+              setSelectedFolder(null); // reset folder selection when opening file
+            }}
           >
             <img src={icon} alt={`${node.name} icon`} className="file-icon" />
             <span>{node.name}</span>
@@ -97,11 +102,17 @@ function Sidebar() {
 
       if (node.type === "folder") {
         const isCollapsed = collapsedFolders[fullPath] || false;
+        const isSelected = selectedFolder === node.handle;
+
         return (
           <div key={fullPath} className="folder-item">
             <div
-              className="folder-header"
-              onClick={() => toggleFolder(fullPath)}
+              className={`folder-header ${isSelected ? "selected-folder" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFolder(fullPath);
+                setSelectedFolder(node.handle);
+              }}
             >
               <img
                 src={isCollapsed ? unCollapseIcon : collapseIcon}
@@ -111,9 +122,7 @@ function Sidebar() {
               <span>{node.name}</span>
             </div>
             {!isCollapsed && node.children?.length > 0 && (
-              <div className="folder-children">
-                {renderTree(node.children, fullPath)}
-              </div>
+              <div className="folder-children">{renderTree(node.children, fullPath)}</div>
             )}
           </div>
         );
@@ -148,10 +157,9 @@ function Sidebar() {
         ))}
       </div>
 
-      {/* Sidebar expandable content */}
       {activePanel === "explorer" && (
         <div className="sidebar-expanded">
-          {projectTree.length === 0 ? (
+          {!dirHandle ? (
             <>
               <p className="no-folder-text">You have not yet opened a folder.</p>
               <button className="open-folder-btn" onClick={handleOpenFolder}>
@@ -161,13 +169,15 @@ function Sidebar() {
             </>
           ) : (
             <>
-              {/* 🔽 Explorer Header Row */}
               <div className="explorer-header">
                 <img
                   src={rootCollapsed ? unCollapseIcon : collapseIcon}
                   alt={rootCollapsed ? "Expand Root" : "Collapse Root"}
                   className="explorer-icon"
-                  onClick={() => setRootCollapsed(!rootCollapsed)}
+                  onClick={() => {
+                    setRootCollapsed(!rootCollapsed);
+                    setSelectedFolder(dirHandle);
+                  }}
                 />
                 <span className="project-name">{rootFolderName}</span>
                 <div className="explorer-actions">
@@ -192,9 +202,19 @@ function Sidebar() {
                 </div>
               </div>
 
-              {/* 🔽 Project Tree */}
               {!rootCollapsed && (
-                <div className="project-tree">{renderTree(projectTree)}</div>
+                <div
+                  className="project-tree"
+                  onClick={() => {
+                    setSelectedFolder(dirHandle);
+                  }}
+                >
+                  {projectTree.length > 0 ? (
+                    renderTree(projectTree)
+                  ) : (
+                    <p className="no-files-text">This folder is empty.</p>
+                  )}
+                </div>
               )}
             </>
           )}
