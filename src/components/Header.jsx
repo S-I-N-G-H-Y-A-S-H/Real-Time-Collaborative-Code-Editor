@@ -3,10 +3,10 @@ import { useState, useEffect, useRef } from "react";
 import logo from "../assets/logo.png";
 import searchIcon from "../assets/search-icon.png";
 import { useFile } from "../context/FileContext";
-import { useEditor } from "../context/EditorContext"; // ⬅️ new
+import { useEditor } from "../context/EditorContext";
 import "../styles/Header.css";
 
-function Header({ onSearchClick }) {
+function Header({ onSearchClick, onToggleTerminal }) {
   const [openMenu, setOpenMenu] = useState(null);
   const headerRef = useRef(null);
 
@@ -19,7 +19,7 @@ function Header({ onSearchClick }) {
     currentFile,
   } = useFile();
 
-  const { editor } = useEditor(); // ⬅️ monaco editor instance
+  const { editor } = useEditor();
 
   const toggleMenu = (menu) => {
     setOpenMenu(openMenu === menu ? null : menu);
@@ -54,50 +54,49 @@ function Header({ onSearchClick }) {
 
   // Edit menu actions
   const handleEditAction = async (action) => {
-  if (!editor) return;
+    if (!editor) return;
 
-  switch (action) {
-    case "undo":
-      editor.trigger("source", "undo", null);
-      break;
-    case "redo":
-      editor.trigger("source", "redo", null);
-      break;
-    case "cut":
-      const selection = editor.getSelection();
-      const model = editor.getModel();
-      if (selection && model) {
-        const text = model.getValueInRange(selection);
+    switch (action) {
+      case "undo":
+        editor.trigger("source", "undo", null);
+        break;
+      case "redo":
+        editor.trigger("source", "redo", null);
+        break;
+      case "cut":
+        const selection = editor.getSelection();
+        const model = editor.getModel();
+        if (selection && model) {
+          const text = model.getValueInRange(selection);
 
+          try {
+            await navigator.clipboard.writeText(text);
+          } catch (err) {
+            console.error("Clipboard write failed:", err);
+          }
+
+          editor.executeEdits("cut", [
+            { range: selection, text: "", forceMoveMarkers: true },
+          ]);
+        }
+        break;
+      case "copy":
+        document.execCommand("copy");
+        break;
+      case "paste":
         try {
-          await navigator.clipboard.writeText(text);
+          const text = await navigator.clipboard.readText();
+          if (text) {
+            editor.trigger("keyboard", "type", { text });
+          }
         } catch (err) {
-          console.error("Clipboard write failed:", err);
+          console.error("Paste failed:", err);
         }
-
-        editor.executeEdits("cut", [
-          { range: selection, text: "", forceMoveMarkers: true },
-        ]);
-      }
-      break;
-    case "copy":
-      document.execCommand("copy");
-      break;
-    case "paste":
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          editor.trigger("keyboard", "type", { text });
-        }
-      } catch (err) {
-        console.error("Paste failed:", err);
-      }
-      break;
-    default:
-      break;
-  }
-};
-  
+        break;
+      default:
+        break;
+    }
+  };
 
   // ✅ Close dropdown if clicked outside or press Escape
   useEffect(() => {
@@ -214,8 +213,29 @@ function Header({ onSearchClick }) {
             View
             {openMenu === "view" && (
               <div className="dropdown">
-                <div className="dropdown-item">Command Palette</div>
-                <div className="dropdown-item">Terminal</div>
+                <div
+                  className="dropdown-item"
+                                  onClick={() => {
+                  if (editor) {
+                    editor.focus(); // ensure editor is active
+                    editor.trigger("source", "editor.action.quickCommand");
+                  }
+                  closeMenus();
+                }}
+                >
+                  Command Palette
+                </div>
+                <div
+                  className="dropdown-item"
+                  onClick={() => {
+                    if (typeof onToggleTerminal === "function") {
+                      onToggleTerminal();
+                    }
+                    closeMenus();
+                  }}
+                >
+                  Terminal
+                </div>
               </div>
             )}
           </div>

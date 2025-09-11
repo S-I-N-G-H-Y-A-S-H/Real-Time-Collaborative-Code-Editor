@@ -14,7 +14,7 @@ import Tabs from "../components/Tabs";
 import "../styles/EditorPage.css";
 
 import getLangInfo from "../utils/getLanguageFromFilename";
-import { useEditor } from "../context/EditorContext"; // ⬅️ new
+import { useEditor } from "../context/EditorContext";
 
 function EditorPage() {
   const {
@@ -29,7 +29,8 @@ function EditorPage() {
   const [showTerminal, setShowTerminal] = useState(false);
 
   const terminalExecuteRef = useRef(null);
-  const { setEditor } = useEditor(); // ⬅️ hook into context
+  const editorRef = useRef(null); // ⬅️ local editor ref
+  const { setEditor } = useEditor();
 
   useEffect(() => {
     if (currentFile) {
@@ -65,16 +66,17 @@ function EditorPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Toggle terminal
-      if (e.ctrlKey && e.key === "`") {
+      const isMac = navigator.platform.toUpperCase().includes("MAC");
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+      // Toggle terminal (Ctrl+`)
+      if (modKey && e.key === "`") {
         e.preventDefault();
         setShowTerminal((prev) => !prev);
         return;
       }
 
       // Save (Ctrl+S / Cmd+S)
-      const isMac = navigator.platform.toUpperCase().includes("MAC");
-      const modKey = isMac ? e.metaKey : e.ctrlKey;
       if (modKey && (e.key === "s" || e.key === "S")) {
         e.preventDefault();
         e.stopPropagation();
@@ -93,6 +95,15 @@ function EditorPage() {
       if (e.ctrlKey && e.key === "F5") {
         e.preventDefault();
         runCurrentFile();
+      }
+
+      // Command Palette (Ctrl+Shift+P / Cmd+Shift+P)
+      if (modKey && e.shiftKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        if (editorRef.current) {
+          editorRef.current.focus();
+          editorRef.current.trigger("source", "editor.action.quickCommand");
+        }
       }
     };
 
@@ -117,7 +128,7 @@ function EditorPage() {
 
   return (
     <div className="editor-wrapper">
-      <Header />
+      <Header onToggleTerminal={() => setShowTerminal((prev) => !prev)} />
 
       <div className="body-layout">
         <Sidebar />
@@ -147,7 +158,8 @@ function EditorPage() {
                       scrollBeyondLastLine: false,
                     }}
                     onMount={(editorInstance) => {
-                      setEditor(editorInstance); // ⬅️ store in context
+                      setEditor(editorInstance);
+                      editorRef.current = editorInstance; // ⬅️ store local ref
                     }}
                   />
                 </div>
