@@ -6,7 +6,7 @@ import { useFile } from "../context/FileContext";
 import { useEditor } from "../context/EditorContext";
 import "../styles/Header.css";
 
-function Header({ onSearchClick, onToggleTerminal }) {
+function Header({ onSearchClick, onRunCode, onToggleTerminal }) {
   const [openMenu, setOpenMenu] = useState(null);
   const headerRef = useRef(null);
 
@@ -96,6 +96,14 @@ function Header({ onSearchClick, onToggleTerminal }) {
       default:
         break;
     }
+  };
+
+  // Run menu actions
+  const handleRunCode = async () => {
+    if (typeof onRunCode === "function") {
+      onRunCode();
+    }
+    closeMenus();
   };
 
   // ✅ Close dropdown if clicked outside or press Escape
@@ -215,13 +223,13 @@ function Header({ onSearchClick, onToggleTerminal }) {
               <div className="dropdown">
                 <div
                   className="dropdown-item"
-                                  onClick={() => {
-                  if (editor) {
-                    editor.focus(); // ensure editor is active
-                    editor.trigger("source", "editor.action.quickCommand");
-                  }
-                  closeMenus();
-                }}
+                  onClick={() => {
+                    if (editor) {
+                      editor.focus();
+                      editor.trigger("source", "editor.action.quickCommand");
+                    }
+                    closeMenus();
+                  }}
                 >
                   Command Palette
                 </div>
@@ -251,7 +259,9 @@ function Header({ onSearchClick, onToggleTerminal }) {
             Run
             {openMenu === "run" && (
               <div className="dropdown">
-                <div className="dropdown-item">Run Code</div>
+                <div className="dropdown-item" onClick={handleRunCode}>
+                  Run Code
+                </div>
               </div>
             )}
           </div>
@@ -268,7 +278,9 @@ function Header({ onSearchClick, onToggleTerminal }) {
             {openMenu === "terminal" && (
               <div className="dropdown">
                 <div className="dropdown-item">New Terminal</div>
-                <div className="dropdown-item">Run Active File</div>
+                <div className="dropdown-item" onClick={handleRunCode}>
+                  Run Active File
+                </div>
               </div>
             )}
           </div>

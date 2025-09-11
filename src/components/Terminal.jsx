@@ -74,11 +74,14 @@ function TerminalComponent({ refExecute }) {
     }
   };
 
-  // Expose executeFile to parent (EditorPage)
+  // Expose executeFile to parent (EditorPage or Header)
   useEffect(() => {
     if (typeof refExecute === "function") {
       refExecute(executeFile);
     }
+
+    // ✅ Expose globally so Header can call it
+    window.__executeFile = executeFile;
   }, [refExecute]);
 
   useEffect(() => {

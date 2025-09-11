@@ -29,7 +29,7 @@ function EditorPage() {
   const [showTerminal, setShowTerminal] = useState(false);
 
   const terminalExecuteRef = useRef(null);
-  const editorRef = useRef(null); // ⬅️ local editor ref
+  const editorRef = useRef(null);
   const { setEditor } = useEditor();
 
   useEffect(() => {
@@ -111,7 +111,6 @@ function EditorPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentFile, saveFile, showTerminal]);
 
-  // Editor change → mark dirty
   const handleEditorChange = useCallback(
     (newCode) => {
       setCode(newCode ?? "");
@@ -128,7 +127,10 @@ function EditorPage() {
 
   return (
     <div className="editor-wrapper">
-      <Header onToggleTerminal={() => setShowTerminal((prev) => !prev)} />
+      <Header
+        onRunCode={runCurrentFile}
+        onToggleTerminal={() => setShowTerminal((prev) => !prev)}
+      />
 
       <div className="body-layout">
         <Sidebar />
@@ -159,7 +161,7 @@ function EditorPage() {
                     }}
                     onMount={(editorInstance) => {
                       setEditor(editorInstance);
-                      editorRef.current = editorInstance; // ⬅️ store local ref
+                      editorRef.current = editorInstance;
                     }}
                   />
                 </div>
