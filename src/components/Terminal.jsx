@@ -1,3 +1,4 @@
+// src/components/Terminal.jsx
 import { useEffect, useRef } from "react";
 import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
@@ -46,8 +47,25 @@ function TerminalComponent({ refExecute }) {
       if (result.timedOut) {
         printLine("Execution timed out.");
       }
-      if (result.stdout) printLine(`Output:\n${result.stdout}`);
-      if (result.stderr) printLine(`Errors:\n${result.stderr}`);
+
+      if (result.stdout) {
+        printLine("Output:");
+        result.stdout.split(/\r?\n/).forEach((line) => {
+          if (line.trim().length > 0) {
+            printLine(line);
+          }
+        });
+      }
+
+      if (result.stderr) {
+        printLine("Errors:");
+        result.stderr.split(/\r?\n/).forEach((line) => {
+          if (line.trim().length > 0) {
+            printLine(line);
+          }
+        });
+      }
+
       if (!result.stdout && !result.stderr) {
         printLine("[No output]");
       }
