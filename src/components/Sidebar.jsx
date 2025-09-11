@@ -59,7 +59,7 @@ function Sidebar() {
 
   const handleConfirm = async (name) => {
     if (modalType === "file") {
-      await createNewFile(name, selectedItem);
+      await createNewFile(name, selectedItem); // ✅ use createNewFile (tree-specific)
     } else if (modalType === "folder") {
       await createNewFolder(name, selectedItem);
     }

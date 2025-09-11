@@ -13,7 +13,6 @@ export const FileProvider = ({ children }) => {
   const [rootFolderName, setRootFolderName] = useState("");
   const [selectedFolder, setSelectedFolder] = useState(null);
 
-  // ✅ new redirect flag
   const [shouldRedirectToEditor, setShouldRedirectToEditor] = useState(false);
 
   // Build project tree
@@ -39,9 +38,7 @@ export const FileProvider = ({ children }) => {
     setProjectTree(tree);
     setSelectedFolder(null);
 
-    // ✅ trigger redirect
     setShouldRedirectToEditor(true);
-
     return true;
   };
 
@@ -76,7 +73,39 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // Create new file
+  // ✅ New File Anywhere (File menu → Save As dialog)
+  const createNewFileAnywhere = async (fileName = "untitled.txt") => {
+    try {
+      const newHandle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+      });
+      const writable = await newHandle.createWritable();
+      await writable.write("");
+      await writable.close();
+
+      const file = await newHandle.getFile();
+      const text = await file.text();
+      const language = getLanguageFromFilename(file.name);
+
+      const openedFile = {
+        fileName: file.name,
+        fileContent: text,
+        fileHandle: newHandle,
+        modified: false,
+        language,
+      };
+
+      setOpenFiles((prev) => [...prev, openedFile]);
+      setCurrentFile(openedFile);
+      setShouldRedirectToEditor(true);
+      return true;
+    } catch (err) {
+      console.error("Error creating new file anywhere:", err);
+      return false;
+    }
+  };
+
+  // ✅ Create File inside project tree (button next to folder)
   const createNewFile = async (fileName, selectedItem = null) => {
     if (!dirHandle || !fileName) return;
 
@@ -93,27 +122,39 @@ export const FileProvider = ({ children }) => {
 
     try {
       const handle = await parent.getFileHandle(fileName, { create: true });
-      if (fileName.endsWith(".java") && handle.createWritable) {
-        const className = fileName.replace(".java", "");
-        const boilerplate = `public class ${className} {
-    public static void main(String[] args) {
-        System.out.println("Hello, World!");
-    }
-}`;
-        const writable = await handle.createWritable();
-        await writable.write(boilerplate);
-        await writable.close();
-      }
       await refreshProjectTree();
+
+      const file = await handle.getFile();
+      const text = await file.text();
+      const language = getLanguageFromFilename(file.name);
+
+      const openedFile = {
+        fileName: fileName,
+        fileContent: text,
+        fileHandle: handle,
+        modified: false,
+        language,
+      };
+
+      setOpenFiles((prev) => [...prev, openedFile]);
+      setCurrentFile(openedFile);
     } catch (err) {
       console.error("Error creating file:", err);
+    }
+  };
+
+  // ✅ Close file (fixes tab close button)
+  const closeFile = (fileHandle) => {
+    setOpenFiles((prev) => prev.filter((f) => f.fileHandle !== fileHandle));
+    if (currentFile?.fileHandle === fileHandle) {
+      const remaining = openFiles.filter((f) => f.fileHandle !== fileHandle);
+      setCurrentFile(remaining.length > 0 ? remaining[0] : null);
     }
   };
 
   // Create new folder
   const createNewFolder = async (folderName, selectedItem = null) => {
     if (!dirHandle || !folderName) return;
-
     let parent;
     if (selectedItem?.type === "folder") {
       parent = selectedItem.handle;
@@ -124,7 +165,6 @@ export const FileProvider = ({ children }) => {
     } else {
       parent = selectedFolder || dirHandle;
     }
-
     try {
       await parent.getDirectoryHandle(folderName, { create: true });
       await refreshProjectTree();
@@ -133,10 +173,9 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // Delete item (safer)
+  // Delete item
   const deleteItem = async (path, type, askConfirm = true) => {
     if (!dirHandle || !path) return false;
-
     const parts = path.split("/").filter(Boolean);
     const name = parts[parts.length - 1];
     const parentPath = parts.slice(0, -1).join("/");
@@ -148,13 +187,11 @@ export const FileProvider = ({ children }) => {
     }
 
     try {
-      // Ensure entry exists first
       if (type === "folder") {
         await parentHandle.getDirectoryHandle(name);
       } else {
         await parentHandle.getFileHandle(name);
       }
-
       await parentHandle.removeEntry(name, { recursive: type === "folder" });
       await refreshProjectTree();
       return true;
@@ -167,7 +204,6 @@ export const FileProvider = ({ children }) => {
   // Rename item
   const renameItem = async (path, newName, type) => {
     if (!dirHandle || !path || !newName) return false;
-
     const parts = path.split("/").filter(Boolean);
     const name = parts[parts.length - 1];
     const parentPath = parts.slice(0, -1).join("/");
@@ -196,7 +232,7 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // Open file
+  // Open file from tree
   const openFileFromTree = async (fileHandle) => {
     if (!fileHandle) return;
     try {
@@ -221,7 +257,33 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // Update file content (mark as modified)
+  // Open file via picker
+  const openFileFromPicker = async () => {
+    try {
+      const [fileHandle] = await window.showOpenFilePicker();
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      const language = getLanguageFromFilename(file.name);
+
+      const openedFile = {
+        fileName: file.name,
+        fileContent: content,
+        fileHandle,
+        modified: false,
+        language,
+      };
+
+      setOpenFiles((prev) => [...prev, openedFile]);
+      setCurrentFile(openedFile);
+      setShouldRedirectToEditor(true);
+      return true;
+    } catch (err) {
+      console.error("Open file cancelled or failed:", err);
+      return false;
+    }
+  };
+
+  // Update file content
   const updateFileContent = (fileHandle, newContent) => {
     setOpenFiles((prev) =>
       prev.map((f) =>
@@ -233,15 +295,13 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // Save file to disk
+  // Save file
   const saveFile = async (file) => {
     if (!file || !file.fileHandle) return false;
     try {
       const writable = await file.fileHandle.createWritable();
       await writable.write(file.fileContent);
       await writable.close();
-
-      // mark as clean
       setOpenFiles((prev) =>
         prev.map((f) =>
           f.fileHandle === file.fileHandle ? { ...f, modified: false } : f
@@ -257,7 +317,29 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // Keyboard shortcut: Ctrl+S / Cmd+S
+  // Save As
+  const saveFileAs = async (file) => {
+    if (!file) return false;
+    try {
+      const newHandle = await window.showSaveFilePicker({
+        suggestedName: file.fileName,
+      });
+      const writable = await newHandle.createWritable();
+      await writable.write(file.fileContent);
+      await writable.close();
+      const updatedFile = { ...file, fileHandle: newHandle, modified: false };
+      setCurrentFile(updatedFile);
+      setOpenFiles((prev) =>
+        prev.map((f) => (f.fileHandle === file.fileHandle ? updatedFile : f))
+      );
+      return true;
+    } catch (err) {
+      console.error("Save As cancelled or failed:", err);
+      return false;
+    }
+  };
+
+  // Keyboard shortcut
   useEffect(() => {
     const handleSaveShortcut = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -285,16 +367,18 @@ export const FileProvider = ({ children }) => {
         setSelectedFolder,
         openFolder,
         refreshProjectTree,
-        createNewFile,
+        createNewFileAnywhere, // for Header menu
+        createNewFile,         // for Project Tree "+"
         createNewFolder,
         deleteItem,
         renameItem,
+        closeFile,             // ✅ fix for tab cross
         openFileFromTree,
+        openFileFromPicker,
         getFolderHandleByPath,
         updateFileContent,
         saveFile,
-
-        // ✅ expose redirect flag
+        saveFileAs,
         shouldRedirectToEditor,
         setShouldRedirectToEditor,
       }}

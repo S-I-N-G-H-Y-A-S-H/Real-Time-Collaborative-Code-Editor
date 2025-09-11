@@ -1,7 +1,7 @@
 // src/components/Tabs.jsx
 import { useFile } from "../context/FileContext";
 import closeIcon from "../assets/close-tab.png";
-import dirtyIcon from "../assets/dirty-dot.png"; // real dirty icon
+import dirtyIcon from "../assets/dirty-dot.png";
 import "../styles/Tabs.css";
 import { getFileIcon } from "../utils/fileIcons";
 import { useRef, useEffect } from "react";
@@ -40,7 +40,6 @@ function Tabs() {
     };
 
     const onWheel = (e) => {
-      // always scroll horizontally
       if (Math.abs(e.deltaY) > 0) {
         e.preventDefault();
         viewport.scrollLeft += e.deltaY;
@@ -67,9 +66,9 @@ function Tabs() {
       <div className="tab-list">
         {openFiles.map((file) => (
           <div
-            key={file.fileName}
+            key={file.fileHandle || file.fileName}
             className={`tab ${
-              currentFile?.fileName === file.fileName ? "active-tab" : ""
+              currentFile?.fileHandle === file.fileHandle ? "active-tab" : ""
             }`}
             onClick={() => setCurrentFile(file)}
             title={file.fileName}
@@ -96,7 +95,7 @@ function Tabs() {
               className="close-tab-icon"
               onClick={(e) => {
                 e.stopPropagation();
-                closeFile(file.fileName);
+                closeFile(file.fileHandle); // ✅ fix: close by handle
               }}
             />
           </div>

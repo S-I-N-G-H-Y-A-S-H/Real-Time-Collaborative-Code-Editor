@@ -1,16 +1,52 @@
+// src/components/Header.jsx
 import { useState } from "react";
 import logo from "../assets/logo.png";
 import searchIcon from "../assets/search-icon.png";
+import { useFile } from "../context/FileContext";
 import "../styles/Header.css";
 
 function Header({ onSearchClick }) {
   const [openMenu, setOpenMenu] = useState(null);
+
+  const {
+    createNewFileAnywhere,
+    openFileFromPicker,
+    openFolder,
+    saveFile,
+    saveFileAs,
+    currentFile,
+  } = useFile();
 
   const toggleMenu = (menu) => {
     setOpenMenu(openMenu === menu ? null : menu);
   };
 
   const closeMenus = () => setOpenMenu(null);
+
+  // File menu actions
+  const handleNewFile = async () => {
+    await createNewFileAnywhere("untitled.txt");
+  };
+
+  const handleOpenFile = async () => {
+    await openFileFromPicker();
+  };
+
+  const handleOpenFolder = async () => {
+    await openFolder();
+  };
+
+  const handleSave = async () => {
+    if (currentFile) {
+      await saveFile(currentFile);
+    }
+  };
+
+  const handleSaveAs = async () => {
+    if (currentFile) {
+      await saveFileAs(currentFile);
+    }
+  };
 
   return (
     <div className="header-wrapper" onClick={closeMenus}>
@@ -29,11 +65,21 @@ function Header({ onSearchClick }) {
             File
             {openMenu === "file" && (
               <div className="dropdown">
-                <div className="dropdown-item">New File</div>
-                <div className="dropdown-item">Open File</div>
-                <div className="dropdown-item">Open Folder</div>
-                <div className="dropdown-item">Save</div>
-                <div className="dropdown-item">Save As</div>
+                <div className="dropdown-item" onClick={handleNewFile}>
+                  New File
+                </div>
+                <div className="dropdown-item" onClick={handleOpenFile}>
+                  Open File
+                </div>
+                <div className="dropdown-item" onClick={handleOpenFolder}>
+                  Open Folder
+                </div>
+                <div className="dropdown-item" onClick={handleSave}>
+                  Save
+                </div>
+                <div className="dropdown-item" onClick={handleSaveAs}>
+                  Save As
+                </div>
               </div>
             )}
           </div>
@@ -137,7 +183,7 @@ function Header({ onSearchClick }) {
             type="text"
             placeholder="Search"
             className="search-input"
-            readOnly // Prevent keyboard entry
+            readOnly
           />
         </div>
       </div>
