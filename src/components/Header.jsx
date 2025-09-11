@@ -1,12 +1,14 @@
 // src/components/Header.jsx
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import logo from "../assets/logo.png";
 import searchIcon from "../assets/search-icon.png";
 import { useFile } from "../context/FileContext";
+import { useEditor } from "../context/EditorContext"; // ⬅️ new
 import "../styles/Header.css";
 
 function Header({ onSearchClick }) {
   const [openMenu, setOpenMenu] = useState(null);
+  const headerRef = useRef(null);
 
   const {
     createNewFileAnywhere,
@@ -16,6 +18,8 @@ function Header({ onSearchClick }) {
     saveFileAs,
     currentFile,
   } = useFile();
+
+  const { editor } = useEditor(); // ⬅️ monaco editor instance
 
   const toggleMenu = (menu) => {
     setOpenMenu(openMenu === menu ? null : menu);
@@ -48,8 +52,78 @@ function Header({ onSearchClick }) {
     }
   };
 
+  // Edit menu actions
+  const handleEditAction = async (action) => {
+  if (!editor) return;
+
+  switch (action) {
+    case "undo":
+      editor.trigger("source", "undo", null);
+      break;
+    case "redo":
+      editor.trigger("source", "redo", null);
+      break;
+    case "cut":
+      const selection = editor.getSelection();
+      const model = editor.getModel();
+      if (selection && model) {
+        const text = model.getValueInRange(selection);
+
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (err) {
+          console.error("Clipboard write failed:", err);
+        }
+
+        editor.executeEdits("cut", [
+          { range: selection, text: "", forceMoveMarkers: true },
+        ]);
+      }
+      break;
+    case "copy":
+      document.execCommand("copy");
+      break;
+    case "paste":
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          editor.trigger("keyboard", "type", { text });
+        }
+      } catch (err) {
+        console.error("Paste failed:", err);
+      }
+      break;
+    default:
+      break;
+  }
+};
+  
+
+  // ✅ Close dropdown if clicked outside or press Escape
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (headerRef.current && !headerRef.current.contains(e.target)) {
+        closeMenus();
+      }
+    };
+
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        closeMenus();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
   return (
-    <div className="header-wrapper" onClick={closeMenus}>
+    <div className="header-wrapper" ref={headerRef}>
       {/* Left Section: Logo + Menu */}
       <div className="left-section">
         <img src={logo} alt="Logo" className="logo-circle" />
@@ -95,11 +169,36 @@ function Header({ onSearchClick }) {
             Edit
             {openMenu === "edit" && (
               <div className="dropdown">
-                <div className="dropdown-item">Undo</div>
-                <div className="dropdown-item">Redo</div>
-                <div className="dropdown-item">Cut</div>
-                <div className="dropdown-item">Copy</div>
-                <div className="dropdown-item">Paste</div>
+                <div
+                  className="dropdown-item"
+                  onClick={() => handleEditAction("undo")}
+                >
+                  Undo
+                </div>
+                <div
+                  className="dropdown-item"
+                  onClick={() => handleEditAction("redo")}
+                >
+                  Redo
+                </div>
+                <div
+                  className="dropdown-item"
+                  onClick={() => handleEditAction("cut")}
+                >
+                  Cut
+                </div>
+                <div
+                  className="dropdown-item"
+                  onClick={() => handleEditAction("copy")}
+                >
+                  Copy
+                </div>
+                <div
+                  className="dropdown-item"
+                  onClick={() => handleEditAction("paste")}
+                >
+                  Paste
+                </div>
               </div>
             )}
           </div>

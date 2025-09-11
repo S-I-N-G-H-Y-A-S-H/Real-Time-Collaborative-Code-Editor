@@ -1,3 +1,4 @@
+// src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import WelcomePage from "./pages/WelcomePage";
 import EditorPage from "./pages/EditorPage";
@@ -5,6 +6,7 @@ import SignupPage from "./pages/SignupPage";
 import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import { EditorProvider } from "./context/EditorContext"; // ⬅️ import
 
 // Helper component for protecting routes
 const ProtectedRoute = ({ children }) => {
@@ -16,39 +18,41 @@ function App() {
   const token = localStorage.getItem("token");
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Default route - redirect depending on login */}
-        <Route
-          path="/"
-          element={token ? <WelcomePage /> : <Navigate to="/login" />}
-        />
+    <EditorProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Default route - redirect depending on login */}
+          <Route
+            path="/"
+            element={token ? <WelcomePage /> : <Navigate to="/login" />}
+          />
 
-        {/* Auth routes */}
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+          {/* Auth routes */}
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* Protected routes */}
-        <Route
-          path="/welcome"
-          element={
-            <ProtectedRoute>
-              <WelcomePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/editor"
-          element={
-            <ProtectedRoute>
-              <EditorPage />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
+          {/* Protected routes */}
+          <Route
+            path="/welcome"
+            element={
+              <ProtectedRoute>
+                <WelcomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/editor"
+            element={
+              <ProtectedRoute>
+                <EditorPage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </EditorProvider>
   );
 }
 

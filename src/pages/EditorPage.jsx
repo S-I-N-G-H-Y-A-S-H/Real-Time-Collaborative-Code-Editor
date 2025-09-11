@@ -14,13 +14,14 @@ import Tabs from "../components/Tabs";
 import "../styles/EditorPage.css";
 
 import getLangInfo from "../utils/getLanguageFromFilename";
+import { useEditor } from "../context/EditorContext"; // ⬅️ new
 
 function EditorPage() {
   const {
     currentFile,
     setCurrentFile,
-    updateFileContent,   // ✅ correct fn
-    saveFile,            // ✅ correct fn
+    updateFileContent,
+    saveFile,
   } = useFile();
 
   const { isVisible } = useSidebar();
@@ -28,6 +29,7 @@ function EditorPage() {
   const [showTerminal, setShowTerminal] = useState(false);
 
   const terminalExecuteRef = useRef(null);
+  const { setEditor } = useEditor(); // ⬅️ hook into context
 
   useEffect(() => {
     if (currentFile) {
@@ -143,6 +145,9 @@ function EditorPage() {
                       fontSize: 14,
                       minimap: { enabled: false },
                       scrollBeyondLastLine: false,
+                    }}
+                    onMount={(editorInstance) => {
+                      setEditor(editorInstance); // ⬅️ store in context
                     }}
                   />
                 </div>
