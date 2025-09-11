@@ -119,18 +119,27 @@ app.post("/run", async (req, res) => {
       compileNeeded = true;
       compileCmd = `g++ ${srcFile} -o ${exeName}`;
       runCmd = `"${path.join(tempDir, exeName)}"`;
-    } else if (language === "java") {
+    }else if (language === "java") {
       if (!status.javac || !status.java) {
         await fsPromises.rm(tempDir, { recursive: true, force: true });
         return res.status(400).json({ error: "JDK not found (javac/java)." });
       }
-      className = "Main";
+
+      // ✅ Detect public class name
+      let className = "Main";
+      const match = code.match(/public\s+class\s+([A-Za-z_]\w*)/);
+      if (match) {
+        className = match[1];
+      }
+
       srcFile = `${className}.java`;
       await fsPromises.writeFile(path.join(tempDir, srcFile), code);
+
       compileNeeded = true;
       compileCmd = `javac ${srcFile}`;
       runCmd = `java -cp . ${className}`;
-    } else {
+    }
+    else {
       await fsPromises.rm(tempDir, { recursive: true, force: true });
       return res.status(400).json({ error: "Unsupported language." });
     }

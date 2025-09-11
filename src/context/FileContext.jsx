@@ -50,19 +50,34 @@ export const FileProvider = ({ children }) => {
     setProjectTree(tree);
   };
 
-  // ✅ Create new file (with provided name)
+  // ✅ Create new file with Java boilerplate support
   const createNewFile = async (fileName) => {
     if (!dirHandle || !fileName) return;
     const parent = selectedFolder || dirHandle;
+
     try {
-      await parent.getFileHandle(fileName, { create: true });
+      const handle = await parent.getFileHandle(fileName, { create: true });
+
+      // If Java file, insert boilerplate
+      if (fileName.endsWith(".java") && handle.createWritable) {
+        const className = fileName.replace(".java", "");
+        const boilerplate = `public class ${className} {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}`;
+        const writable = await handle.createWritable();
+        await writable.write(boilerplate);
+        await writable.close();
+      }
+
       await refreshProjectTree();
     } catch (err) {
       console.error("Error creating file:", err);
     }
   };
 
-  // ✅ Create new folder (with provided name)
+  // ✅ Create new folder
   const createNewFolder = async (folderName) => {
     if (!dirHandle || !folderName) return;
     const parent = selectedFolder || dirHandle;

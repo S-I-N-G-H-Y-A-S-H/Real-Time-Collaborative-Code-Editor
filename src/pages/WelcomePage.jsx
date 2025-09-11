@@ -1,3 +1,4 @@
+// src/pages/WelcomePage.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFile } from '../context/FileContext';
@@ -22,7 +23,7 @@ import '../styles/WelcomePage.css';
 function WelcomePage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
-    const { setCurrentFile, openFolder } = useFile(); // ✅ use openFolder from context
+    const { openFolder, openFileFromTree } = useFile(); // ✅ use openFileFromTree instead of only setCurrentFile
     const { isVisible } = useSidebar();
 
     // 🔒 Redirect to login if no token
@@ -39,7 +40,9 @@ function WelcomePage() {
         setIsModalOpen(false);
         try {
             const fileData = await createFile(fileName);
-            setCurrentFile(fileData);
+            if (fileData?.fileHandle) {
+                await openFileFromTree(fileData.fileHandle); // ✅ add to openFiles + setCurrentFile
+            }
             navigate('/editor');
         } catch (err) {
             console.error("File creation cancelled or failed:", err);
@@ -49,7 +52,9 @@ function WelcomePage() {
     const handleOpenFile = async () => {
         try {
             const fileData = await openFile();
-            setCurrentFile(fileData);
+            if (fileData?.fileHandle) {
+                await openFileFromTree(fileData.fileHandle); // ✅ add to openFiles + setCurrentFile
+            }
             navigate('/editor');
         } catch (err) {
             console.error("File open cancelled or failed:", err);
@@ -59,7 +64,7 @@ function WelcomePage() {
     const handleOpenFolder = async () => {
         try {
             await openFolder(); // ✅ consistent with Sidebar
-            navigate('/editor'); // ✅ go straight to editor
+            navigate('/editor');
         } catch (err) {
             console.error("Folder open cancelled or failed:", err);
         }
