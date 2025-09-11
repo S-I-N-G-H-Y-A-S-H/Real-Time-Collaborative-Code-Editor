@@ -1,0 +1,75 @@
+/* src/styles/NewItemModal.css */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal-box {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 16px;
+  width: 320px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.modal-title {
+  margin: 0 0 12px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 8px;
+  background: #252526;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: #007acc;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.modal-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+}
+
+.modal-btn.cancel {
+  background: #333;
+  color: #ccc;
+}
+
+.modal-btn.cancel:hover {
+  background: #444;
+}
+
+.modal-btn.confirm {
+  background: #007acc;
+  color: #fff;
+}
+
+.modal-btn.confirm:hover {
+  background: #0591f3;
+}

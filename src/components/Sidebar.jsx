@@ -22,6 +22,7 @@ import { getFileIcon } from "../utils/fileIcons";
 
 import "../styles/Sidebar.css";
 import { useState } from "react";
+import NewItemModal from "./NewItemModal"; // ✅ new modal component
 
 function Sidebar() {
   const { activePanel, setActivePanel } = useSidebar();
@@ -42,6 +43,9 @@ function Sidebar() {
 
   const [collapsedFolders, setCollapsedFolders] = useState({});
   const [rootCollapsed, setRootCollapsed] = useState(false);
+
+  // ✅ modal state
+  const [modalType, setModalType] = useState(null);
 
   const sectionsTop = [
     { id: "explorer", icon: file, alt: "File Explorer" },
@@ -76,6 +80,17 @@ function Sidebar() {
     }));
   };
 
+  // ✅ modal handlers
+  const handleConfirm = async (name) => {
+    if (modalType === "file") {
+      await createNewFile(name);
+    } else if (modalType === "folder") {
+      await createNewFolder(name);
+    }
+    setModalType(null);
+  };
+  const handleCancel = () => setModalType(null);
+
   // Recursive Renderer for Tree
   const renderTree = (nodes, parentPath = "") => {
     return nodes.map((node) => {
@@ -91,7 +106,7 @@ function Sidebar() {
             className={`file-item ${isActive ? "active-file" : ""}`}
             onClick={() => {
               openFileFromTree(node.handle);
-              setSelectedFolder(null); // reset folder selection when opening file
+              setSelectedFolder(null);
             }}
           >
             <img src={icon} alt={`${node.name} icon`} className="file-icon" />
@@ -122,7 +137,9 @@ function Sidebar() {
               <span>{node.name}</span>
             </div>
             {!isCollapsed && node.children?.length > 0 && (
-              <div className="folder-children">{renderTree(node.children, fullPath)}</div>
+              <div className="folder-children">
+                {renderTree(node.children, fullPath)}
+              </div>
             )}
           </div>
         );
@@ -185,13 +202,13 @@ function Sidebar() {
                     src={newFileIcon}
                     alt="New File"
                     className="explorer-icon"
-                    onClick={createNewFile}
+                    onClick={() => setModalType("file")}
                   />
                   <img
                     src={newFolderIcon}
                     alt="New Folder"
                     className="explorer-icon"
-                    onClick={createNewFolder}
+                    onClick={() => setModalType("folder")}
                   />
                   <img
                     src={refreshIcon}
@@ -219,6 +236,15 @@ function Sidebar() {
             </>
           )}
         </div>
+      )}
+
+      {/* ✅ Modal appears here */}
+      {modalType && (
+        <NewItemModal
+          type={modalType}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
       )}
     </div>
   );

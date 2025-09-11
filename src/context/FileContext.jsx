@@ -1,7 +1,7 @@
 // src/context/FileContext.jsx
 import { createContext, useContext, useState } from "react";
 import { openFolder as openFolderAPI } from "../services/FileSystem";
-import { getLanguageFromFilename } from "../utils/languageMap"; // ✅ unified import
+import { getLanguageFromFilename } from "../utils/languageMap";
 
 const FileContext = createContext();
 
@@ -13,10 +13,9 @@ export const FileProvider = ({ children }) => {
   const [rootFolderName, setRootFolderName] = useState("");
   const [selectedFolder, setSelectedFolder] = useState(null);
 
-  // Recursive function to build project tree
+  // Build tree
   const buildTree = async (directoryHandle) => {
     const tree = [];
-
     for await (const entry of directoryHandle.values()) {
       if (entry.kind === "file") {
         tree.push({ name: entry.name, type: "file", handle: entry });
@@ -30,78 +29,43 @@ export const FileProvider = ({ children }) => {
         });
       }
     }
-
     return tree;
   };
 
-  // Open a folder
+  // Open folder
   const openFolder = async () => {
     const { dirHandle } = await openFolderAPI();
     if (!dirHandle) return;
-
     setDirHandle(dirHandle);
     setRootFolderName(dirHandle.name);
-
     const tree = await buildTree(dirHandle);
     setProjectTree(tree);
     setSelectedFolder(null);
   };
 
-  // Refresh project tree
+  // Refresh tree
   const refreshProjectTree = async () => {
     if (!dirHandle) return;
     const tree = await buildTree(dirHandle);
     setProjectTree(tree);
   };
 
-  // Create new file
-  const createNewFile = async () => {
-    if (!dirHandle) return;
+  // ✅ Create new file (with provided name)
+  const createNewFile = async (fileName) => {
+    if (!dirHandle || !fileName) return;
     const parent = selectedFolder || dirHandle;
-    const fileName = prompt("Enter new file name (with extension):");
-    if (!fileName) return;
-
     try {
       await parent.getFileHandle(fileName, { create: true });
       await refreshProjectTree();
-
-      // Try to open new file immediately
-      try {
-        const handle = await parent.getFileHandle(fileName);
-        const file = await handle.getFile();
-        const content = await file.text();
-        const language = getLanguageFromFilename(fileName);
-
-        const openedFile = {
-          fileName: handle.name,
-          fileContent: content,
-          fileHandle: handle,
-          modified: false,
-          language,
-        };
-
-        setOpenFiles((prev) => {
-          const exists = prev.find((f) => f.fileName === openedFile.fileName);
-          if (exists) return prev;
-          return [...prev, openedFile];
-        });
-
-        setCurrentFile(openedFile);
-      } catch (innerErr) {
-        console.warn("Created file but couldn't open immediately:", innerErr);
-      }
     } catch (err) {
       console.error("Error creating file:", err);
     }
   };
 
-  // Create new folder
-  const createNewFolder = async () => {
-    if (!dirHandle) return;
+  // ✅ Create new folder (with provided name)
+  const createNewFolder = async (folderName) => {
+    if (!dirHandle || !folderName) return;
     const parent = selectedFolder || dirHandle;
-    const folderName = prompt("Enter new folder name:");
-    if (!folderName) return;
-
     try {
       await parent.getDirectoryHandle(folderName, { create: true });
       await refreshProjectTree();
@@ -110,15 +74,13 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // Open file from tree
+  // Open file
   const openFileFromTree = async (fileHandle) => {
     if (!fileHandle) return;
     try {
       const file = await fileHandle.getFile();
       const content = await file.text();
-
       const language = getLanguageFromFilename(fileHandle.name);
-
       const openedFile = {
         fileName: fileHandle.name,
         fileContent: content,
@@ -126,20 +88,18 @@ export const FileProvider = ({ children }) => {
         modified: false,
         language,
       };
-
       setOpenFiles((prev) => {
         const exists = prev.find((f) => f.fileName === fileHandle.name);
         if (!exists) return [...prev, openedFile];
         return prev;
       });
-
       setCurrentFile(openedFile);
     } catch (err) {
       console.error("Error opening file:", err);
     }
   };
 
-  // Close a file tab
+  // Close tab
   const closeFile = (fileName) => {
     setOpenFiles((prev) => {
       const updated = prev.filter((f) => f.fileName !== fileName);
@@ -150,33 +110,27 @@ export const FileProvider = ({ children }) => {
     });
   };
 
-  // Update the current file's content
+  // Update content
   const updateCurrentFileContent = (newContent, modified = true) => {
     if (!currentFile) return;
-
     const updated = {
       ...currentFile,
       fileContent: newContent ?? "",
       modified,
-      language: getLanguageFromFilename(currentFile.fileName), // ✅ ensure fresh mapping
+      language: getLanguageFromFilename(currentFile.fileName),
     };
-
     setCurrentFile(updated);
-
     setOpenFiles((prev) =>
       prev.map((f) =>
-        f.fileName === updated.fileName
-          ? { ...f, fileContent: updated.fileContent, modified: updated.modified, language: updated.language }
-          : f
+        f.fileName === updated.fileName ? { ...f, ...updated } : f
       )
     );
   };
 
-  // Save a single file
+  // Save file
   const saveFile = async (fileName) => {
     const file = openFiles.find((f) => f.fileName === fileName) || currentFile;
     if (!file) return false;
-
     try {
       if (file.fileHandle && typeof file.fileHandle.createWritable === "function") {
         const writable = await file.fileHandle.createWritable();
@@ -192,16 +146,15 @@ export const FileProvider = ({ children }) => {
           })
         );
       }
-
       const updatedFile = { ...file, modified: false };
       setOpenFiles((prev) =>
-        prev.map((f) => (f.fileName === updatedFile.fileName ? { ...f, modified: false } : f))
+        prev.map((f) =>
+          f.fileName === updatedFile.fileName ? { ...f, modified: false } : f
+        )
       );
-
       if (currentFile?.fileName === updatedFile.fileName) {
         setCurrentFile({ ...currentFile, modified: false });
       }
-
       return true;
     } catch (err) {
       console.error("Save failed for", fileName, err);
