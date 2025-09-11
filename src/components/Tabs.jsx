@@ -1,7 +1,7 @@
 // src/components/Tabs.jsx
 import { useFile } from "../context/FileContext";
 import closeIcon from "../assets/close-tab.png";
-import dirtyDot from "../assets/dirty-dot.png"; // placeholder white-dot asset
+import dirtyIcon from "../assets/dirty-dot.png"; // real dirty icon
 import "../styles/Tabs.css";
 import { getFileIcon } from "../utils/fileIcons";
 import { useRef, useEffect } from "react";
@@ -68,16 +68,26 @@ function Tabs() {
         {openFiles.map((file) => (
           <div
             key={file.fileName}
-            className={`tab ${currentFile?.fileName === file.fileName ? "active-tab" : ""}`}
+            className={`tab ${
+              currentFile?.fileName === file.fileName ? "active-tab" : ""
+            }`}
             onClick={() => setCurrentFile(file)}
             title={file.fileName}
           >
-            <img src={getFileIcon(file.fileName)} alt="File Icon" className="tab-file-icon" />
+            <img
+              src={getFileIcon(file.fileName)}
+              alt="File Icon"
+              className="tab-file-icon"
+            />
             <span className="tab-filename">{file.fileName}</span>
 
-            {/* Dirty dot shown next to filename when modified */}
+            {/* Show dirty icon when modified */}
             {file.modified && (
-              <img src={dirtyDot} alt="Unsaved changes" className="dirty-dot" />
+              <img
+                src={dirtyIcon}
+                alt="Unsaved changes"
+                className="dirty-icon"
+              />
             )}
 
             <img

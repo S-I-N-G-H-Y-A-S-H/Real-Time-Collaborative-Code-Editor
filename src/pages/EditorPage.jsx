@@ -19,17 +19,16 @@ function EditorPage() {
   const {
     currentFile,
     setCurrentFile,
-    updateCurrentFileContent,
-    saveCurrentFile,
+    updateFileContent,   // ✅ correct fn
+    saveFile,            // ✅ correct fn
   } = useFile();
+
   const { isVisible } = useSidebar();
   const [code, setCode] = useState("");
   const [showTerminal, setShowTerminal] = useState(false);
 
-  // Reference to terminal execute function
   const terminalExecuteRef = useRef(null);
 
-  // When currentFile changes, set code to its content
   useEffect(() => {
     if (currentFile) {
       setCode(currentFile.fileContent ?? "");
@@ -38,14 +37,11 @@ function EditorPage() {
     }
   }, [currentFile]);
 
-  // Run current file (Ctrl+F5 → terminal)
   const runCurrentFile = () => {
     if (!currentFile) return;
 
-    // Always ensure terminal is open
     if (!showTerminal) {
       setShowTerminal(true);
-      // Delay to allow Terminal to mount
       setTimeout(() => {
         if (terminalExecuteRef.current) {
           terminalExecuteRef.current(
@@ -55,7 +51,6 @@ function EditorPage() {
         }
       }, 200);
     } else {
-      // Terminal already open → run immediately
       if (terminalExecuteRef.current) {
         terminalExecuteRef.current(
           currentFile.fileName,
@@ -68,16 +63,10 @@ function EditorPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Toggle terminal with Ctrl+`
+      // Toggle terminal
       if (e.ctrlKey && e.key === "`") {
         e.preventDefault();
         setShowTerminal((prev) => !prev);
-        return;
-      }
-
-      // Toggle sidebar with Ctrl+B (optional)
-      if (e.ctrlKey && e.key.toLowerCase() === "b") {
-        e.preventDefault();
         return;
       }
 
@@ -88,7 +77,7 @@ function EditorPage() {
         e.preventDefault();
         e.stopPropagation();
         if (currentFile) {
-          saveCurrentFile().then((ok) => {
+          saveFile(currentFile).then((ok) => {
             if (ok) {
               console.log("Saved", currentFile.fileName);
             } else {
@@ -107,26 +96,19 @@ function EditorPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentFile, saveCurrentFile, showTerminal]);
+  }, [currentFile, saveFile, showTerminal]);
 
-  // Editor change
+  // Editor change → mark dirty
   const handleEditorChange = useCallback(
     (newCode) => {
       setCode(newCode ?? "");
-      if (currentFile && updateCurrentFileContent) {
-        updateCurrentFileContent(newCode ?? "", true);
-      } else if (currentFile && setCurrentFile) {
-        setCurrentFile({
-          ...currentFile,
-          fileContent: newCode ?? "",
-          modified: true,
-        });
+      if (currentFile) {
+        updateFileContent(currentFile.fileHandle, newCode ?? "");
       }
     },
-    [currentFile, updateCurrentFileContent, setCurrentFile]
+    [currentFile, updateFileContent]
   );
 
-  // Use Monaco mapping for syntax highlighting
   const monacoLanguage = currentFile?.fileName
     ? getLangInfo(currentFile.fileName).monacoLang
     : "plaintext";

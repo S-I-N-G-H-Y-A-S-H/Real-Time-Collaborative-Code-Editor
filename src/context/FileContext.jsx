@@ -1,5 +1,5 @@
 // src/context/FileContext.jsx
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { openFolder as openFolderAPI } from "../services/FileSystem";
 import { getLanguageFromFilename } from "../utils/languageMap";
 
@@ -125,7 +125,7 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // Delete item
+  // Delete item (safer)
   const deleteItem = async (path, type, askConfirm = true) => {
     if (!dirHandle || !path) return false;
 
@@ -140,6 +140,13 @@ export const FileProvider = ({ children }) => {
     }
 
     try {
+      // Ensure entry exists first
+      if (type === "folder") {
+        await parentHandle.getDirectoryHandle(name);
+      } else {
+        await parentHandle.getFileHandle(name);
+      }
+
       await parentHandle.removeEntry(name, { recursive: type === "folder" });
       await refreshProjectTree();
       return true;
@@ -196,7 +203,7 @@ export const FileProvider = ({ children }) => {
         language,
       };
       setOpenFiles((prev) => {
-        const exists = prev.find((f) => f.fileName === fileHandle.name);
+        const exists = prev.find((f) => f.fileHandle === fileHandle);
         if (!exists) return [...prev, openedFile];
         return prev;
       });
@@ -205,6 +212,56 @@ export const FileProvider = ({ children }) => {
       console.error("Error opening file:", err);
     }
   };
+
+  // Update file content (mark as modified)
+  const updateFileContent = (fileHandle, newContent) => {
+    setOpenFiles((prev) =>
+      prev.map((f) =>
+        f.fileHandle === fileHandle ? { ...f, fileContent: newContent, modified: true } : f
+      )
+    );
+    if (currentFile?.fileHandle === fileHandle) {
+      setCurrentFile((prev) => ({ ...prev, fileContent: newContent, modified: true }));
+    }
+  };
+
+  // Save file to disk
+  const saveFile = async (file) => {
+    if (!file || !file.fileHandle) return false;
+    try {
+      const writable = await file.fileHandle.createWritable();
+      await writable.write(file.fileContent);
+      await writable.close();
+
+      // mark as clean
+      setOpenFiles((prev) =>
+        prev.map((f) =>
+          f.fileHandle === file.fileHandle ? { ...f, modified: false } : f
+        )
+      );
+      if (currentFile?.fileHandle === file.fileHandle) {
+        setCurrentFile((prev) => ({ ...prev, modified: false }));
+      }
+      return true;
+    } catch (err) {
+      console.error("Error saving file:", err);
+      return false;
+    }
+  };
+
+  // Keyboard shortcut: Ctrl+S / Cmd+S
+  useEffect(() => {
+    const handleSaveShortcut = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        if (currentFile) {
+          saveFile(currentFile);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleSaveShortcut);
+    return () => window.removeEventListener("keydown", handleSaveShortcut);
+  }, [currentFile]);
 
   return (
     <FileContext.Provider
@@ -226,6 +283,8 @@ export const FileProvider = ({ children }) => {
         renameItem,
         openFileFromTree,
         getFolderHandleByPath,
+        updateFileContent,
+        saveFile,
       }}
     >
       {children}
