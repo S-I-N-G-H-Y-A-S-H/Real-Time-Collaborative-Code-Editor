@@ -1,44 +1,154 @@
-import logo from '../assets/logo.png';
-import searchIcon from '../assets/search-icon.png';
-import '../styles/Header.css';
-
+import { useState } from "react";
+import logo from "../assets/logo.png";
+import searchIcon from "../assets/search-icon.png";
+import "../styles/Header.css";
 
 function Header({ onSearchClick }) {
-    return (
-        <div className="header-wrapper">
-            {/* Left Section: Logo + Menu */}
-            <div className="left-section">
-                <img src={logo} alt="Logo" className="logo-circle" />
-                <div className="menu-container">
-                    <span className="menu-item">File</span>
-                    <span className="menu-item">Edit</span>
-                    <span className="menu-item">View</span>
-                    <span className="menu-item">Run</span>
-                    <span className="menu-item">Terminal</span>
-                    <span className="menu-item">Help</span>
-                </div>
-            </div>
+  const [openMenu, setOpenMenu] = useState(null);
 
-            {/* Center Section: Search */}
-            <div className="center-section">
-                <div className="search-wrapper" onClick={onSearchClick}>
-                    <img src={searchIcon} alt="Search" className="search-icon" />
-                    <input
-                        type="text"
-                        placeholder="Search"
-                        className="search-input"
-                        readOnly // Prevent keyboard entry
-                    />
-                </div>
-            </div>
+  const toggleMenu = (menu) => {
+    setOpenMenu(openMenu === menu ? null : menu);
+  };
 
-            {/* Right Section */}
-            <div className="right-section">
-                <button className="invite-btn">Invite</button>
-                <button className="join-btn">Join</button>
-            </div>
+  const closeMenus = () => setOpenMenu(null);
+
+  return (
+    <div className="header-wrapper" onClick={closeMenus}>
+      {/* Left Section: Logo + Menu */}
+      <div className="left-section">
+        <img src={logo} alt="Logo" className="logo-circle" />
+        <div className="menu-container">
+          {/* File */}
+          <div
+            className="menu-item"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMenu("file");
+            }}
+          >
+            File
+            {openMenu === "file" && (
+              <div className="dropdown">
+                <div className="dropdown-item">New File</div>
+                <div className="dropdown-item">Open File</div>
+                <div className="dropdown-item">Open Folder</div>
+                <div className="dropdown-item">Save</div>
+                <div className="dropdown-item">Save As</div>
+              </div>
+            )}
+          </div>
+
+          {/* Edit */}
+          <div
+            className="menu-item"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMenu("edit");
+            }}
+          >
+            Edit
+            {openMenu === "edit" && (
+              <div className="dropdown">
+                <div className="dropdown-item">Undo</div>
+                <div className="dropdown-item">Redo</div>
+                <div className="dropdown-item">Cut</div>
+                <div className="dropdown-item">Copy</div>
+                <div className="dropdown-item">Paste</div>
+              </div>
+            )}
+          </div>
+
+          {/* View */}
+          <div
+            className="menu-item"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMenu("view");
+            }}
+          >
+            View
+            {openMenu === "view" && (
+              <div className="dropdown">
+                <div className="dropdown-item">Command Palette</div>
+                <div className="dropdown-item">Terminal</div>
+              </div>
+            )}
+          </div>
+
+          {/* Run */}
+          <div
+            className="menu-item"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMenu("run");
+            }}
+          >
+            Run
+            {openMenu === "run" && (
+              <div className="dropdown">
+                <div className="dropdown-item">Run Code</div>
+              </div>
+            )}
+          </div>
+
+          {/* Terminal */}
+          <div
+            className="menu-item"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMenu("terminal");
+            }}
+          >
+            Terminal
+            {openMenu === "terminal" && (
+              <div className="dropdown">
+                <div className="dropdown-item">New Terminal</div>
+                <div className="dropdown-item">Run Active File</div>
+              </div>
+            )}
+          </div>
+
+          {/* Help */}
+          <div
+            className="menu-item"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMenu("help");
+            }}
+          >
+            Help
+            {openMenu === "help" && (
+              <div className="dropdown">
+                <div className="dropdown-item">Welcome</div>
+                <div className="dropdown-item">Documentation</div>
+                <div className="dropdown-item">Contact</div>
+                <div className="dropdown-item">About</div>
+              </div>
+            )}
+          </div>
         </div>
-    );
+      </div>
+
+      {/* Center Section: Search */}
+      <div className="center-section">
+        <div className="search-wrapper" onClick={onSearchClick}>
+          <img src={searchIcon} alt="Search" className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search"
+            className="search-input"
+            readOnly // Prevent keyboard entry
+          />
+        </div>
+      </div>
+
+      {/* Right Section */}
+      <div className="right-section">
+        <button className="invite-btn">Invite</button>
+        <button className="join-btn">Join</button>
+      </div>
+    </div>
+  );
 }
 
 export default Header;

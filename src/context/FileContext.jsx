@@ -13,6 +13,9 @@ export const FileProvider = ({ children }) => {
   const [rootFolderName, setRootFolderName] = useState("");
   const [selectedFolder, setSelectedFolder] = useState(null);
 
+  // ✅ new redirect flag
+  const [shouldRedirectToEditor, setShouldRedirectToEditor] = useState(false);
+
   // Build project tree
   const buildTree = async (directoryHandle) => {
     const tree = [];
@@ -29,12 +32,17 @@ export const FileProvider = ({ children }) => {
 
   const openFolder = async () => {
     const { dirHandle } = await openFolderAPI();
-    if (!dirHandle) return;
+    if (!dirHandle) return false;
     setDirHandle(dirHandle);
     setRootFolderName(dirHandle.name);
     const tree = await buildTree(dirHandle);
     setProjectTree(tree);
     setSelectedFolder(null);
+
+    // ✅ trigger redirect
+    setShouldRedirectToEditor(true);
+
+    return true;
   };
 
   const refreshProjectTree = async () => {
@@ -285,6 +293,10 @@ export const FileProvider = ({ children }) => {
         getFolderHandleByPath,
         updateFileContent,
         saveFile,
+
+        // ✅ expose redirect flag
+        shouldRedirectToEditor,
+        setShouldRedirectToEditor,
       }}
     >
       {children}

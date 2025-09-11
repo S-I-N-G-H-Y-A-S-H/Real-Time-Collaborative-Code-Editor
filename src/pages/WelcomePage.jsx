@@ -15,7 +15,6 @@ import newFileIcon from '../assets/new-file.png';
 import openFileIcon from '../assets/open-file.png';
 import openFolderIcon from '../assets/open-folder.png';
 
-// ✅ only import file-related functions (not openFolder)
 import { createFile, openFile } from '../services/FileSystem';
 
 import '../styles/WelcomePage.css';
@@ -23,7 +22,7 @@ import '../styles/WelcomePage.css';
 function WelcomePage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
-    const { openFolder, openFileFromTree } = useFile(); // ✅ use openFileFromTree instead of only setCurrentFile
+    const { openFolder, openFileFromTree, shouldRedirectToEditor, setShouldRedirectToEditor } = useFile();
     const { isVisible } = useSidebar();
 
     // 🔒 Redirect to login if no token
@@ -34,6 +33,14 @@ function WelcomePage() {
         }
     }, [navigate]);
 
+    // ✅ Watch for redirect flag from context
+    useEffect(() => {
+        if (shouldRedirectToEditor) {
+            navigate("/editor", { replace: true });
+            setShouldRedirectToEditor(false); // reset after navigating
+        }
+    }, [shouldRedirectToEditor, navigate, setShouldRedirectToEditor]);
+
     const handleNewFileClick = () => setIsModalOpen(true);
 
     const handleCreateNewFile = async (fileName) => {
@@ -41,7 +48,7 @@ function WelcomePage() {
         try {
             const fileData = await createFile(fileName);
             if (fileData?.fileHandle) {
-                await openFileFromTree(fileData.fileHandle); // ✅ add to openFiles + setCurrentFile
+                await openFileFromTree(fileData.fileHandle);
             }
             navigate('/editor');
         } catch (err) {
@@ -53,7 +60,7 @@ function WelcomePage() {
         try {
             const fileData = await openFile();
             if (fileData?.fileHandle) {
-                await openFileFromTree(fileData.fileHandle); // ✅ add to openFiles + setCurrentFile
+                await openFileFromTree(fileData.fileHandle);
             }
             navigate('/editor');
         } catch (err) {
@@ -63,8 +70,7 @@ function WelcomePage() {
 
     const handleOpenFolder = async () => {
         try {
-            await openFolder(); // ✅ consistent with Sidebar
-            navigate('/editor');
+            await openFolder(); // ✅ just triggers flag now
         } catch (err) {
             console.error("Folder open cancelled or failed:", err);
         }
