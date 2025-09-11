@@ -1,6 +1,7 @@
 // src/components/ProjectTree.jsx
 import { useState, useEffect } from "react";
 import { getFileIcon } from "../utils/fileIcons";
+import { useFile } from "../context/FileContext";
 
 import collapseIcon from "../assets/collapseIcon.png";
 import unCollapseIcon from "../assets/unCollapsed.png";
@@ -22,6 +23,9 @@ function ProjectTree({
   const [tempName, setTempName] = useState("");
   const [contextMenu, setContextMenu] = useState(null);
 
+  // 🔗 pull from FileContext to update tabs
+  const { openFiles, setOpenFiles, closeFile, setCurrentFile } = useFile();
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!selectedItem) return;
@@ -29,7 +33,7 @@ function ProjectTree({
         setEditingPath(selectedItem.path);
         setTempName(selectedItem.name);
       } else if (e.key === "Delete") {
-        deleteItem(selectedItem.path, selectedItem.type);
+        handleDelete(selectedItem);
         setSelectedItem(null);
       }
     };
@@ -42,7 +46,7 @@ function ProjectTree({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("click", handleClickOutside);
     };
-  }, [selectedItem, deleteItem]);
+  }, [selectedItem]);
 
   const toggleFolder = (path) => {
     setCollapsedFolders((prev) => ({ ...prev, [path]: !prev[path] }));
@@ -56,6 +60,17 @@ function ProjectTree({
       return;
     }
     const ok = await renameItem(fullPath, newName, node.type);
+    if (ok && node.type === "file") {
+      // 🔄 update open files + current file instantly
+      setOpenFiles((prev) =>
+        prev.map((f) =>
+          f.fileName === node.name ? { ...f, fileName: newName } : f
+        )
+      );
+      if (currentFile?.fileName === node.name) {
+        setCurrentFile({ ...currentFile, fileName: newName });
+      }
+    }
     if (ok) {
       setSelectedItem({
         ...node,
@@ -76,6 +91,18 @@ function ProjectTree({
       y: e.pageY,
       item: { ...node, path: fullPath },
     });
+  };
+
+  const handleDelete = async (item) => {
+    if (!item) return;
+    const ok = await deleteItem(item.path, item.type);
+    if (ok && item.type === "file") {
+      // ❌ also close any matching open tabs
+      openFiles
+        .filter((f) => f.fileName === item.name)
+        .forEach((f) => closeFile(f.fileHandle));
+    }
+    setContextMenu(null);
   };
 
   const renderTree = (nodes = [], parentPath = "") =>
@@ -221,8 +248,7 @@ function ProjectTree({
           </li>
           <li
             onClick={() => {
-              deleteItem(contextMenu.item.path, contextMenu.item.type);
-              setContextMenu(null);
+              handleDelete(contextMenu.item);
             }}
           >
             Delete <span className="shortcut">Del</span>

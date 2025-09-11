@@ -232,13 +232,22 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // Open file from tree
-  const openFileFromTree = async (fileHandle) => {
-    if (!fileHandle) return;
-    try {
-      const file = await fileHandle.getFile();
-      const content = await file.text();
-      const language = getLanguageFromFilename(fileHandle.name);
+// Open file from tree
+const openFileFromTree = async (fileHandle) => {
+  if (!fileHandle) return;
+  try {
+    const file = await fileHandle.getFile();
+    const content = await file.text();
+    const language = getLanguageFromFilename(fileHandle.name);
+
+    setOpenFiles((prev) => {
+      const exists = prev.find((f) => f.fileHandle === fileHandle);
+      if (exists) {
+        // ✅ If already open, just set it active
+        setCurrentFile(exists);
+        return prev;
+      }
+      // ✅ Otherwise open a new tab
       const openedFile = {
         fileName: fileHandle.name,
         fileContent: content,
@@ -246,16 +255,13 @@ export const FileProvider = ({ children }) => {
         modified: false,
         language,
       };
-      setOpenFiles((prev) => {
-        const exists = prev.find((f) => f.fileHandle === fileHandle);
-        if (!exists) return [...prev, openedFile];
-        return prev;
-      });
       setCurrentFile(openedFile);
-    } catch (err) {
-      console.error("Error opening file:", err);
-    }
-  };
+      return [...prev, openedFile];
+    });
+  } catch (err) {
+    console.error("Error opening file:", err);
+  }
+};
 
   // Open file via picker
   const openFileFromPicker = async () => {
