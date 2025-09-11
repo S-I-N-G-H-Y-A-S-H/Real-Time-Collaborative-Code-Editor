@@ -6,45 +6,68 @@
   width: 100%;
 }
 
-.project-tree-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #1a1a1a;
-  border-bottom: 1px solid #333;
-  padding: 6px 10px;
+.tree-node {
+  padding-left: 10px;
 }
 
-.project-tree-header-left {
+.tree-item {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.project-folder-name {
-  color: #ddd;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.project-tree-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.tree-icon {
-  width: 16px;
-  height: 16px;
+  padding: 2px 4px;
   cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.2s ease-in-out;
 }
 
-.tree-icon:hover {
-  opacity: 1;
+.tree-item:hover {
+  background-color: #2a2a2a;
 }
 
-.project-tree-body {
-  padding: 10px;
+.selected {
+  background-color: #333;
+}
+
+.file-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+}
+
+.collapse-icon {
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+}
+
+.tree-children {
+  margin-left: 16px;
+}
+
+/* Context menu */
+.context-menu {
+  position: fixed;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 4px 0;
+  z-index: 1000;
+  list-style: none;
+  margin: 0;
+  width: 160px;
+}
+
+.context-menu li {
+  padding: 6px 12px;
+  color: #ddd;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+}
+
+.context-menu li:hover {
+  background: #333;
+}
+
+.context-menu .shortcut {
+  color: #888;
+  font-size: 12px;
 }

@@ -13,7 +13,7 @@ export const FileProvider = ({ children }) => {
   const [rootFolderName, setRootFolderName] = useState("");
   const [selectedFolder, setSelectedFolder] = useState(null);
 
-  // Build tree
+  // Build project tree
   const buildTree = async (directoryHandle) => {
     const tree = [];
     for await (const entry of directoryHandle.values()) {
@@ -21,18 +21,12 @@ export const FileProvider = ({ children }) => {
         tree.push({ name: entry.name, type: "file", handle: entry });
       } else if (entry.kind === "directory") {
         const children = await buildTree(entry);
-        tree.push({
-          name: entry.name,
-          type: "folder",
-          handle: entry,
-          children,
-        });
+        tree.push({ name: entry.name, type: "folder", handle: entry, children });
       }
     }
     return tree;
   };
 
-  // Open folder
   const openFolder = async () => {
     const { dirHandle } = await openFolderAPI();
     if (!dirHandle) return;
@@ -43,22 +37,54 @@ export const FileProvider = ({ children }) => {
     setSelectedFolder(null);
   };
 
-  // Refresh tree
   const refreshProjectTree = async () => {
     if (!dirHandle) return;
     const tree = await buildTree(dirHandle);
     setProjectTree(tree);
   };
 
-  // ✅ Create new file with Java boilerplate support
-  const createNewFile = async (fileName) => {
+  const getFolderHandleByPath = async (path) => {
+    if (!dirHandle) return null;
+    const parts = (path || "").split("/").filter(Boolean);
+    let handle = dirHandle;
+    for (const part of parts) {
+      handle = await handle.getDirectoryHandle(part);
+    }
+    return handle;
+  };
+
+  const copyDirectory = async (oldHandle, newHandle) => {
+    for await (const entry of oldHandle.values()) {
+      if (entry.kind === "file") {
+        const file = await entry.getFile();
+        const newFH = await newHandle.getFileHandle(entry.name, { create: true });
+        const writable = await newFH.createWritable();
+        await writable.write(file);
+        await writable.close();
+      } else if (entry.kind === "directory") {
+        const childNew = await newHandle.getDirectoryHandle(entry.name, { create: true });
+        await copyDirectory(entry, childNew);
+      }
+    }
+  };
+
+  // Create new file
+  const createNewFile = async (fileName, selectedItem = null) => {
     if (!dirHandle || !fileName) return;
-    const parent = selectedFolder || dirHandle;
+
+    let parent;
+    if (selectedItem?.type === "folder") {
+      parent = selectedItem.handle;
+    } else if (selectedItem?.type === "file") {
+      const parts = selectedItem.path.split("/").filter(Boolean);
+      const parentPath = parts.slice(0, -1).join("/");
+      parent = parentPath ? await getFolderHandleByPath(parentPath) : dirHandle;
+    } else {
+      parent = selectedFolder || dirHandle;
+    }
 
     try {
       const handle = await parent.getFileHandle(fileName, { create: true });
-
-      // If Java file, insert boilerplate
       if (fileName.endsWith(".java") && handle.createWritable) {
         const className = fileName.replace(".java", "");
         const boilerplate = `public class ${className} {
@@ -70,22 +96,88 @@ export const FileProvider = ({ children }) => {
         await writable.write(boilerplate);
         await writable.close();
       }
-
       await refreshProjectTree();
     } catch (err) {
       console.error("Error creating file:", err);
     }
   };
 
-  // ✅ Create new folder
-  const createNewFolder = async (folderName) => {
+  // Create new folder
+  const createNewFolder = async (folderName, selectedItem = null) => {
     if (!dirHandle || !folderName) return;
-    const parent = selectedFolder || dirHandle;
+
+    let parent;
+    if (selectedItem?.type === "folder") {
+      parent = selectedItem.handle;
+    } else if (selectedItem?.type === "file") {
+      const parts = selectedItem.path.split("/").filter(Boolean);
+      const parentPath = parts.slice(0, -1).join("/");
+      parent = parentPath ? await getFolderHandleByPath(parentPath) : dirHandle;
+    } else {
+      parent = selectedFolder || dirHandle;
+    }
+
     try {
       await parent.getDirectoryHandle(folderName, { create: true });
       await refreshProjectTree();
     } catch (err) {
       console.error("Error creating folder:", err);
+    }
+  };
+
+  // Delete item
+  const deleteItem = async (path, type, askConfirm = true) => {
+    if (!dirHandle || !path) return false;
+
+    const parts = path.split("/").filter(Boolean);
+    const name = parts[parts.length - 1];
+    const parentPath = parts.slice(0, -1).join("/");
+    const parentHandle = parentPath ? await getFolderHandleByPath(parentPath) : dirHandle;
+
+    if (askConfirm) {
+      const ok = window.confirm(`Delete "${name}"?`);
+      if (!ok) return false;
+    }
+
+    try {
+      await parentHandle.removeEntry(name, { recursive: type === "folder" });
+      await refreshProjectTree();
+      return true;
+    } catch (err) {
+      console.error("Delete failed:", err);
+      return false;
+    }
+  };
+
+  // Rename item
+  const renameItem = async (path, newName, type) => {
+    if (!dirHandle || !path || !newName) return false;
+
+    const parts = path.split("/").filter(Boolean);
+    const name = parts[parts.length - 1];
+    const parentPath = parts.slice(0, -1).join("/");
+    const parentHandle = parentPath ? await getFolderHandleByPath(parentPath) : dirHandle;
+
+    try {
+      if (type === "file") {
+        const oldHandle = await parentHandle.getFileHandle(name);
+        const file = await oldHandle.getFile();
+        const newHandle = await parentHandle.getFileHandle(newName, { create: true });
+        const writable = await newHandle.createWritable();
+        await writable.write(file);
+        await writable.close();
+        await deleteItem(path, "file", false);
+      } else if (type === "folder") {
+        const oldDir = await parentHandle.getDirectoryHandle(name);
+        const newDir = await parentHandle.getDirectoryHandle(newName, { create: true });
+        await copyDirectory(oldDir, newDir);
+        await deleteItem(path, "folder", false);
+      }
+      await refreshProjectTree();
+      return true;
+    } catch (err) {
+      console.error("Rename failed:", err);
+      return false;
     }
   };
 
@@ -114,94 +206,26 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // Close tab
-  const closeFile = (fileName) => {
-    setOpenFiles((prev) => {
-      const updated = prev.filter((f) => f.fileName !== fileName);
-      if (currentFile?.fileName === fileName) {
-        setCurrentFile(updated.length > 0 ? updated[updated.length - 1] : null);
-      }
-      return updated;
-    });
-  };
-
-  // Update content
-  const updateCurrentFileContent = (newContent, modified = true) => {
-    if (!currentFile) return;
-    const updated = {
-      ...currentFile,
-      fileContent: newContent ?? "",
-      modified,
-      language: getLanguageFromFilename(currentFile.fileName),
-    };
-    setCurrentFile(updated);
-    setOpenFiles((prev) =>
-      prev.map((f) =>
-        f.fileName === updated.fileName ? { ...f, ...updated } : f
-      )
-    );
-  };
-
-  // Save file
-  const saveFile = async (fileName) => {
-    const file = openFiles.find((f) => f.fileName === fileName) || currentFile;
-    if (!file) return false;
-    try {
-      if (file.fileHandle && typeof file.fileHandle.createWritable === "function") {
-        const writable = await file.fileHandle.createWritable();
-        await writable.write(file.fileContent ?? "");
-        await writable.close();
-      } else {
-        localStorage.setItem(
-          `codefile:${file.fileName}`,
-          JSON.stringify({
-            name: file.fileName,
-            content: file.fileContent,
-            savedAt: new Date().toISOString(),
-          })
-        );
-      }
-      const updatedFile = { ...file, modified: false };
-      setOpenFiles((prev) =>
-        prev.map((f) =>
-          f.fileName === updatedFile.fileName ? { ...f, modified: false } : f
-        )
-      );
-      if (currentFile?.fileName === updatedFile.fileName) {
-        setCurrentFile({ ...currentFile, modified: false });
-      }
-      return true;
-    } catch (err) {
-      console.error("Save failed for", fileName, err);
-      return false;
-    }
-  };
-
-  const saveCurrentFile = async () => {
-    if (!currentFile) return false;
-    return await saveFile(currentFile.fileName);
-  };
-
   return (
     <FileContext.Provider
       value={{
         currentFile,
         setCurrentFile,
         openFiles,
-        closeFile,
+        setOpenFiles,
         projectTree,
         rootFolderName,
         dirHandle,
         selectedFolder,
         setSelectedFolder,
         openFolder,
-        openFileFromTree,
+        refreshProjectTree,
         createNewFile,
         createNewFolder,
-        refreshProjectTree,
-        updateCurrentFileContent,
-        saveFile,
-        saveCurrentFile,
+        deleteItem,
+        renameItem,
+        openFileFromTree,
+        getFolderHandleByPath,
       }}
     >
       {children}
