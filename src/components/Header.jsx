@@ -6,7 +6,7 @@ import { useFile } from "../context/FileContext";
 import { useEditor } from "../context/EditorContext";
 import "../styles/Header.css";
 
-function Header({ onSearchClick, onRunCode, onToggleTerminal }) {
+function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
   const [openMenu, setOpenMenu] = useState(null);
   const headerRef = useRef(null);
 
@@ -98,11 +98,14 @@ function Header({ onSearchClick, onRunCode, onToggleTerminal }) {
     }
   };
 
-  // Run menu actions
-  const handleRunCode = async () => {
-    if (typeof onRunCode === "function") {
-      onRunCode();
-    }
+  // Menu actions
+  const handleRunCode = () => {
+    if (typeof onRunCode === "function") onRunCode();
+    closeMenus();
+  };
+
+  const handleNewTerminal = () => {
+    if (typeof onNewTerminal === "function") onNewTerminal();
     closeMenus();
   };
 
@@ -277,7 +280,9 @@ function Header({ onSearchClick, onRunCode, onToggleTerminal }) {
             Terminal
             {openMenu === "terminal" && (
               <div className="dropdown">
-                <div className="dropdown-item">New Terminal</div>
+                <div className="dropdown-item" onClick={handleNewTerminal}>
+                  New Terminal
+                </div>
                 <div className="dropdown-item" onClick={handleRunCode}>
                   Run Active File
                 </div>
@@ -308,7 +313,14 @@ function Header({ onSearchClick, onRunCode, onToggleTerminal }) {
 
       {/* Center Section: Search */}
       <div className="center-section">
-        <div className="search-wrapper" onClick={onSearchClick}>
+        <div
+          className="search-wrapper"
+          onClick={() => {
+            if (typeof onSearchClick === "function") {
+              onSearchClick();
+            }
+          }}
+        >
           <img src={searchIcon} alt="Search" className="search-icon" />
           <input
             type="text"

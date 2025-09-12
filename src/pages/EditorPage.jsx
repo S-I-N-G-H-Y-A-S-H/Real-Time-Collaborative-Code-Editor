@@ -1,5 +1,6 @@
 // src/pages/EditorPage.jsx
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { useFile } from "../context/FileContext";
 import { useSidebar } from "../context/SidebarContext";
 import Editor from "@monaco-editor/react";
@@ -29,8 +30,10 @@ function EditorPage() {
   const [showTerminal, setShowTerminal] = useState(false);
 
   const terminalExecuteRef = useRef(null);
+  const terminalResetRef = useRef(null);
   const editorRef = useRef(null);
   const { setEditor } = useEditor();
+  const location = useLocation();
 
   useEffect(() => {
     if (currentFile) {
@@ -62,6 +65,28 @@ function EditorPage() {
       }
     }
   };
+
+  const newTerminal = () => {
+    if (!showTerminal) {
+      setShowTerminal(true);
+    } else {
+      if (terminalResetRef.current) {
+        terminalResetRef.current();
+      }
+    }
+  };
+
+  // Auto-open palette if redirected with state
+  useEffect(() => {
+    if (location.state?.openPalette) {
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.focus();
+          editorRef.current.trigger("source", "editor.action.quickCommand");
+        }
+      }, 300);
+    }
+  }, [location]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -125,11 +150,20 @@ function EditorPage() {
     ? getLangInfo(currentFile.fileName).monacoLang
     : "plaintext";
 
+  const handleSearchClick = () => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+      editorRef.current.trigger("source", "editor.action.quickCommand");
+    }
+  };
+
   return (
     <div className="editor-wrapper">
       <Header
         onRunCode={runCurrentFile}
+        onNewTerminal={newTerminal}
         onToggleTerminal={() => setShowTerminal((prev) => !prev)}
+        onSearchClick={handleSearchClick}
       />
 
       <div className="body-layout">
@@ -169,6 +203,7 @@ function EditorPage() {
                 {showTerminal && (
                   <TerminalComponent
                     refExecute={(fn) => (terminalExecuteRef.current = fn)}
+                    refReset={(fn) => (terminalResetRef.current = fn)}
                   />
                 )}
               </>

@@ -9,7 +9,7 @@ import { runCode } from "../api/execution";
 import getLanguageFromFilename from "../utils/getLanguageFromFilename";
 import { useFile } from "../context/FileContext";
 
-function TerminalComponent({ refExecute }) {
+function TerminalComponent({ refExecute, refReset }) {
   const terminalRef = useRef(null);
   const xterm = useRef(null);
   const fitAddon = useRef(null);
@@ -19,6 +19,14 @@ function TerminalComponent({ refExecute }) {
 
   const printLine = (text = "") => {
     xterm.current?.writeln(text);
+  };
+
+  const clearTerminal = () => {
+    if (xterm.current) {
+      xterm.current.clear();
+      xterm.current.writeln("New terminal instance ready!");
+      xterm.current.write(">");
+    }
   };
 
   const executeFile = async (filename, source) => {
@@ -74,15 +82,19 @@ function TerminalComponent({ refExecute }) {
     }
   };
 
-  // Expose executeFile to parent (EditorPage or Header)
+  // Expose functions
   useEffect(() => {
     if (typeof refExecute === "function") {
       refExecute(executeFile);
     }
+    if (typeof refReset === "function") {
+      refReset(clearTerminal);
+    }
 
-    // ✅ Expose globally so Header can call it
+    // Expose globally
     window.__executeFile = executeFile;
-  }, [refExecute]);
+    window.__resetTerminal = clearTerminal;
+  }, [refExecute, refReset]);
 
   useEffect(() => {
     const initTerminal = () => {
