@@ -1,0 +1,131 @@
+/* src/components/ParticipantsDropdown.css */
+
+.participants-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-right: 12px; /* spacing before invite/join buttons */
+}
+
+/* button in header */
+.participants-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 8px;
+  color: #e6eef6;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.participants-toggle:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+.participants-icon {
+  color: #9fd46c; /* a subtle green to match your buttons */
+  opacity: 0.95;
+}
+
+.participants-count {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.participants-caret {
+  font-size: 12px;
+  opacity: 0.8;
+  transition: transform .12s ease;
+}
+.participants-caret.open {
+  transform: rotate(180deg);
+}
+
+/* dropdown panel */
+.participants-dropdown {
+  position: absolute;
+  left: 0; /* dropdown opens left-aligned with the toggle — change if needed */
+  top: calc(100% + 10px);
+  min-width: 260px;
+  background: var(--panel-bg, #0f1720);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+  z-index: 120;
+  padding: 10px;
+}
+
+/* header text inside panel */
+.participants-title {
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+}
+
+/* list */
+.participants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.participant-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.participant-item:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+/* avatar circle */
+.participant-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #111213;
+  color: #fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  font-size:14px;
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+/* name and badges */
+.participant-name {
+  font-size: 13px;
+  color: #e8eef3;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.participant-you {
+  font-size: 12px;
+  color: #9fb4c9;
+  margin-left: 6px;
+  font-weight: 500;
+}
+
+.participant-host {
+  font-size: 12px;
+  color: #a8d48a;
+  margin-left: 6px;
+  font-weight: 600;
+}
+
+.participant-more {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #9fb4c9;
+  padding: 6px;
+}

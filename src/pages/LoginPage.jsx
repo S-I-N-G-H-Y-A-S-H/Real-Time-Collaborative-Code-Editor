@@ -16,11 +16,43 @@ const LoginPage = () => {
     setForm({ ...form, [e.target.id.replace('login-', '')]: e.target.value });
   };
 
+  // Decode JWT payload (works even if backend doesn't send user object)
+  const decodeToken = (token) => {
+    try {
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(
+        atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+      );
+      return decoded;
+    } catch {
+      return null;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const res = await API.post('/auth/login', form);
-      localStorage.setItem('token', res.data.token);
+
+      const token = res.data.token;
+      localStorage.setItem('token', token);
+
+      // If backend sends { user }
+      let user = res.data.user;
+
+      // If backend sends ONLY token, decode user info from JWT
+      if (!user) {
+        const decoded = decodeToken(token);
+        user = {
+          username: decoded?.username || decoded?.name || decoded?.email || "User",
+          email: decoded?.email,
+          id: decoded?.id || decoded?._id,
+        };
+      }
+
+      // Save user to localStorage
+      localStorage.setItem('user', JSON.stringify(user));
+
       setError('');
       setMessage('Login successful. Redirecting...');
       setTimeout(() => navigate('/welcome'), 1200);

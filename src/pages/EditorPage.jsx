@@ -76,7 +76,7 @@ function EditorPage() {
     }
   };
 
-  // Auto-open palette if redirected with state
+  // Auto-open command palette if redirected with state
   useEffect(() => {
     if (location.state?.openPalette) {
       setTimeout(() => {
@@ -101,7 +101,7 @@ function EditorPage() {
         return;
       }
 
-      // Save (Ctrl+S / Cmd+S)
+      // Save (Ctrl+S)
       if (modKey && (e.key === "s" || e.key === "S")) {
         e.preventDefault();
         e.stopPropagation();
@@ -122,7 +122,7 @@ function EditorPage() {
         runCurrentFile();
       }
 
-      // Command Palette (Ctrl+Shift+P / Cmd+Shift+P)
+      // Command Palette (Ctrl+Shift+P)
       if (modKey && e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         if (editorRef.current) {
@@ -146,6 +146,7 @@ function EditorPage() {
     [currentFile, updateFileContent]
   );
 
+  // FIXED: we use monacoLanguage instead of undefined Language
   const monacoLanguage = currentFile?.fileName
     ? getLangInfo(currentFile.fileName).monacoLang
     : "plaintext";
@@ -185,7 +186,7 @@ function EditorPage() {
                   <Editor
                     height="100%"
                     theme="vs-dark"
-                    language={monacoLanguage}
+                    language={monacoLanguage || "plaintext"}  // FIXED HERE
                     value={code}
                     onChange={handleEditorChange}
                     options={{

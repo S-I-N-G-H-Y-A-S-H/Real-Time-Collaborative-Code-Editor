@@ -6,6 +6,12 @@ import { useFile } from "../context/FileContext";
 import { useEditor } from "../context/EditorContext";
 import "../styles/Header.css";
 
+import ParticipantsDropdown from "./ParticipantsDropdown";
+
+// design image you uploaded (local path) — transform this to a URL if you want to show it:
+// /mnt/data/profile-making-design.jpg
+const DESIGN_IMAGE = "/mnt/data/profile-making-design.jpg";
+
 function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
   const [openMenu, setOpenMenu] = useState(null);
   const headerRef = useRef(null);
@@ -131,6 +137,13 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
+
+  // Example participants (replace with real-time participants later)
+  const exampleParticipants = [
+    // current user is automatically shown by ParticipantsDropdown (reads localStorage.user)
+    { id: "p1", name: "Alice", isHost: false },
+    { id: "p2", name: "Bob", isHost: false },
+  ];
 
   return (
     <div className="header-wrapper" ref={headerRef}>
@@ -333,6 +346,9 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
 
       {/* Right Section */}
       <div className="right-section">
+        {/* Participants dropdown (left of Invite / Join) */}
+        <ParticipantsDropdown participants={exampleParticipants} />
+
         <button className="invite-btn">Invite</button>
         <button className="join-btn">Join</button>
       </div>

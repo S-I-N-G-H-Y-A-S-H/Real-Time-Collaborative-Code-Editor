@@ -1,0 +1,68 @@
+/* src/components/ProfileButton.css */
+
+.profile-btn-wrapper {
+  display: inline-block;
+}
+
+/* keep the original icon look */
+.profile-toggle-img {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.profile-icon-img {
+  width: 34px;
+  height: 34px;
+  display: block;
+}
+
+/* portal dropdown styling (rendered in body) */
+.profile-dropdown-portal {
+  background: var(--panel-bg, #0f1720);
+  border: 1px solid rgba(255,255,255,0.04);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  color: #fff;
+  font-family: inherit;
+}
+
+/* small styles inside */
+.profile-info {
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+  margin-bottom: 8px;
+}
+
+.profile-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.profile-email {
+  font-size: 12px;
+  opacity: 0.7;
+  color: #cbd5e1;
+  margin-top: 2px;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn-logout {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+}
+.btn-logout:hover {
+  background: rgba(255,255,255,0.02);
+}

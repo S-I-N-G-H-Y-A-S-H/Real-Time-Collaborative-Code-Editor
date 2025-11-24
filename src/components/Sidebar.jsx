@@ -23,6 +23,9 @@ import "../styles/Sidebar.css";
 import NewItemModal from "./NewItemModal";
 import ProjectTree from "./ProjectTree";
 
+// NEW: profile button component (renders original icon and dropdown)
+import ProfileButton from "./ProfileButton";
+
 function Sidebar() {
   const { activePanel, setActivePanel } = useSidebar();
   const {
@@ -52,14 +55,12 @@ function Sidebar() {
     { id: "extensions", icon: extension, alt: "Extensions" },
   ];
 
-  const sectionsBottom = [
-    { id: "profile", icon: profile, alt: "User Profile" },
-    { id: "settings", icon: settings, alt: "Settings" },
-  ];
+  // Keep settings in bottom icons; profile is rendered as ProfileButton
+  const sectionsBottom = [{ id: "settings", icon: settings, alt: "Settings" }];
 
   const handleConfirm = async (name) => {
     if (modalType === "file") {
-      await createNewFile(name, selectedItem); // ✅ use createNewFile (tree-specific)
+      await createNewFile(name, selectedItem);
     } else if (modalType === "folder") {
       await createNewFolder(name, selectedItem);
     }
@@ -81,8 +82,17 @@ function Sidebar() {
         ))}
       </div>
 
-      {/* Bottom Section (icons) */}
-      <div className="sidebar-section bottom">
+      {/* Bottom Section (profile + other icons) */}
+      <div
+        className="sidebar-section bottom"
+        style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}
+      >
+        {/* Profile icon (keeps your existing image) */}
+        <div style={{ marginBottom: 6 }}>
+          <ProfileButton icon={profile} />
+        </div>
+
+        {/* Other bottom icons (e.g., settings) */}
         {sectionsBottom.map((s) => (
           <img
             key={s.id}
@@ -114,9 +124,7 @@ function Sidebar() {
                   onClick={() => setRootCollapsed(!rootCollapsed)}
                 />
                 <span
-                  className={`project-name ${
-                    selectedItem?.type === "root" ? "selected" : ""
-                  }`}
+                  className={`project-name ${selectedItem?.type === "root" ? "selected" : ""}`}
                   onClick={() =>
                     setSelectedItem({
                       type: "root",
@@ -128,21 +136,9 @@ function Sidebar() {
                   {rootFolderName}
                 </span>
                 <div className="explorer-actions">
-                  <img
-                    src={newFileIcon}
-                    className="explorer-icon"
-                    onClick={() => setModalType("file")}
-                  />
-                  <img
-                    src={newFolderIcon}
-                    className="explorer-icon"
-                    onClick={() => setModalType("folder")}
-                  />
-                  <img
-                    src={refreshIcon}
-                    className="explorer-icon"
-                    onClick={refreshProjectTree}
-                  />
+                  <img src={newFileIcon} className="explorer-icon" onClick={() => setModalType("file")} />
+                  <img src={newFolderIcon} className="explorer-icon" onClick={() => setModalType("folder")} />
+                  <img src={refreshIcon} className="explorer-icon" onClick={refreshProjectTree} />
                 </div>
               </div>
 
@@ -166,13 +162,7 @@ function Sidebar() {
       )}
 
       {/* Modal for New File/Folder */}
-      {modalType && (
-        <NewItemModal
-          type={modalType}
-          onConfirm={handleConfirm}
-          onCancel={() => setModalType(null)}
-        />
-      )}
+      {modalType && <NewItemModal type={modalType} onConfirm={handleConfirm} onCancel={() => setModalType(null)} />}
     </div>
   );
 }

@@ -27,9 +27,7 @@ const SignupPage = () => {
     try {
       await API.post('/auth/signup', form);
       setError('');
-      setMessage(
-        'Signup successful! Please check your email inbox to verify your account.'
-      );
+      setMessage('Signup successful! Please check your email inbox to verify your account.');
     } catch (err) {
       setMessage('');
       setError(err.response?.data?.error || 'Signup failed');
