@@ -4,15 +4,19 @@ import logo from "../assets/logo.png";
 import searchIcon from "../assets/search-icon.png";
 import { useFile } from "../context/FileContext";
 import { useEditor } from "../context/EditorContext";
-import "../styles/Header.css";
+import { useRoomSync } from "../context/RoomSyncContext";
 
 import ParticipantsDropdown from "./ParticipantsDropdown";
+import "../styles/Header.css";
 
-// design image you uploaded (local path) — transform this to a URL if you want to show it:
-// /mnt/data/profile-making-design.jpg
-const DESIGN_IMAGE = "/mnt/data/profile-making-design.jpg";
-
-function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
+function Header({
+  onSearchClick,
+  onRunCode,
+  onNewTerminal,
+  onToggleTerminal,
+  onInviteClick,
+  onJoinClick,
+}) {
   const [openMenu, setOpenMenu] = useState(null);
   const headerRef = useRef(null);
 
@@ -26,6 +30,7 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
   } = useFile();
 
   const { editor } = useEditor();
+  const { participants } = useRoomSync(); // ✅ REAL participants
 
   const toggleMenu = (menu) => {
     setOpenMenu(openMenu === menu ? null : menu);
@@ -33,7 +38,9 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
 
   const closeMenus = () => setOpenMenu(null);
 
-  // File menu actions
+  /* =========================
+     FILE MENU ACTIONS
+     ========================= */
   const handleNewFile = async () => {
     await createNewFileAnywhere("untitled.txt");
   };
@@ -47,18 +54,16 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
   };
 
   const handleSave = async () => {
-    if (currentFile) {
-      await saveFile(currentFile);
-    }
+    if (currentFile) await saveFile(currentFile);
   };
 
   const handleSaveAs = async () => {
-    if (currentFile) {
-      await saveFileAs(currentFile);
-    }
+    if (currentFile) await saveFileAs(currentFile);
   };
 
-  // Edit menu actions
+  /* =========================
+     EDIT MENU ACTIONS
+     ========================= */
   const handleEditAction = async (action) => {
     if (!editor) return;
 
@@ -69,53 +74,34 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
       case "redo":
         editor.trigger("source", "redo", null);
         break;
-      case "cut":
+      case "cut": {
         const selection = editor.getSelection();
         const model = editor.getModel();
         if (selection && model) {
           const text = model.getValueInRange(selection);
-
-          try {
-            await navigator.clipboard.writeText(text);
-          } catch (err) {
-            console.error("Clipboard write failed:", err);
-          }
-
+          await navigator.clipboard.writeText(text);
           editor.executeEdits("cut", [
             { range: selection, text: "", forceMoveMarkers: true },
           ]);
         }
         break;
+      }
       case "copy":
         document.execCommand("copy");
         break;
-      case "paste":
-        try {
-          const text = await navigator.clipboard.readText();
-          if (text) {
-            editor.trigger("keyboard", "type", { text });
-          }
-        } catch (err) {
-          console.error("Paste failed:", err);
-        }
+      case "paste": {
+        const text = await navigator.clipboard.readText();
+        if (text) editor.trigger("keyboard", "type", { text });
         break;
+      }
       default:
         break;
     }
   };
 
-  // Menu actions
-  const handleRunCode = () => {
-    if (typeof onRunCode === "function") onRunCode();
-    closeMenus();
-  };
-
-  const handleNewTerminal = () => {
-    if (typeof onNewTerminal === "function") onNewTerminal();
-    closeMenus();
-  };
-
-  // ✅ Close dropdown if clicked outside or press Escape
+  /* =========================
+     GLOBAL CLOSE HANDLERS
+     ========================= */
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (headerRef.current && !headerRef.current.contains(e.target)) {
@@ -124,9 +110,7 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
     };
 
     const handleEscape = (e) => {
-      if (e.key === "Escape") {
-        closeMenus();
-      }
+      if (e.key === "Escape") closeMenus();
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -138,112 +122,51 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
     };
   }, []);
 
-  // Example participants (replace with real-time participants later)
-  const exampleParticipants = [
-    // current user is automatically shown by ParticipantsDropdown (reads localStorage.user)
-    { id: "p1", name: "Alice", isHost: false },
-    { id: "p2", name: "Bob", isHost: false },
-  ];
-
   return (
     <div className="header-wrapper" ref={headerRef}>
-      {/* Left Section: Logo + Menu */}
+      {/* LEFT */}
       <div className="left-section">
         <img src={logo} alt="Logo" className="logo-circle" />
+
         <div className="menu-container">
           {/* File */}
-          <div
-            className="menu-item"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMenu("file");
-            }}
-          >
+          <div className="menu-item" onClick={() => toggleMenu("file")}>
             File
             {openMenu === "file" && (
               <div className="dropdown">
-                <div className="dropdown-item" onClick={handleNewFile}>
-                  New File
-                </div>
-                <div className="dropdown-item" onClick={handleOpenFile}>
-                  Open File
-                </div>
-                <div className="dropdown-item" onClick={handleOpenFolder}>
-                  Open Folder
-                </div>
-                <div className="dropdown-item" onClick={handleSave}>
-                  Save
-                </div>
-                <div className="dropdown-item" onClick={handleSaveAs}>
-                  Save As
-                </div>
+                <div className="dropdown-item" onClick={handleNewFile}>New File</div>
+                <div className="dropdown-item" onClick={handleOpenFile}>Open File</div>
+                <div className="dropdown-item" onClick={handleOpenFolder}>Open Folder</div>
+                <div className="dropdown-item" onClick={handleSave}>Save</div>
+                <div className="dropdown-item" onClick={handleSaveAs}>Save As</div>
               </div>
             )}
           </div>
 
           {/* Edit */}
-          <div
-            className="menu-item"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMenu("edit");
-            }}
-          >
+          <div className="menu-item" onClick={() => toggleMenu("edit")}>
             Edit
             {openMenu === "edit" && (
               <div className="dropdown">
-                <div
-                  className="dropdown-item"
-                  onClick={() => handleEditAction("undo")}
-                >
-                  Undo
-                </div>
-                <div
-                  className="dropdown-item"
-                  onClick={() => handleEditAction("redo")}
-                >
-                  Redo
-                </div>
-                <div
-                  className="dropdown-item"
-                  onClick={() => handleEditAction("cut")}
-                >
-                  Cut
-                </div>
-                <div
-                  className="dropdown-item"
-                  onClick={() => handleEditAction("copy")}
-                >
-                  Copy
-                </div>
-                <div
-                  className="dropdown-item"
-                  onClick={() => handleEditAction("paste")}
-                >
-                  Paste
-                </div>
+                <div className="dropdown-item" onClick={() => handleEditAction("undo")}>Undo</div>
+                <div className="dropdown-item" onClick={() => handleEditAction("redo")}>Redo</div>
+                <div className="dropdown-item" onClick={() => handleEditAction("cut")}>Cut</div>
+                <div className="dropdown-item" onClick={() => handleEditAction("copy")}>Copy</div>
+                <div className="dropdown-item" onClick={() => handleEditAction("paste")}>Paste</div>
               </div>
             )}
           </div>
 
           {/* View */}
-          <div
-            className="menu-item"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMenu("view");
-            }}
-          >
+          <div className="menu-item" onClick={() => toggleMenu("view")}>
             View
             {openMenu === "view" && (
               <div className="dropdown">
                 <div
                   className="dropdown-item"
                   onClick={() => {
-                    if (editor) {
-                      editor.focus();
-                      editor.trigger("source", "editor.action.quickCommand");
-                    }
+                    editor?.focus();
+                    editor?.trigger("source", "editor.action.quickCommand");
                     closeMenus();
                   }}
                 >
@@ -252,9 +175,7 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
                 <div
                   className="dropdown-item"
                   onClick={() => {
-                    if (typeof onToggleTerminal === "function") {
-                      onToggleTerminal();
-                    }
+                    onToggleTerminal?.();
                     closeMenus();
                   }}
                 >
@@ -265,52 +186,28 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
           </div>
 
           {/* Run */}
-          <div
-            className="menu-item"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMenu("run");
-            }}
-          >
+          <div className="menu-item" onClick={() => toggleMenu("run")}>
             Run
             {openMenu === "run" && (
               <div className="dropdown">
-                <div className="dropdown-item" onClick={handleRunCode}>
-                  Run Code
-                </div>
+                <div className="dropdown-item" onClick={onRunCode}>Run Code</div>
               </div>
             )}
           </div>
 
           {/* Terminal */}
-          <div
-            className="menu-item"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMenu("terminal");
-            }}
-          >
+          <div className="menu-item" onClick={() => toggleMenu("terminal")}>
             Terminal
             {openMenu === "terminal" && (
               <div className="dropdown">
-                <div className="dropdown-item" onClick={handleNewTerminal}>
-                  New Terminal
-                </div>
-                <div className="dropdown-item" onClick={handleRunCode}>
-                  Run Active File
-                </div>
+                <div className="dropdown-item" onClick={onNewTerminal}>New Terminal</div>
+                <div className="dropdown-item" onClick={onRunCode}>Run Active File</div>
               </div>
             )}
           </div>
 
           {/* Help */}
-          <div
-            className="menu-item"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMenu("help");
-            }}
-          >
+          <div className="menu-item" onClick={() => toggleMenu("help")}>
             Help
             {openMenu === "help" && (
               <div className="dropdown">
@@ -324,33 +221,20 @@ function Header({ onSearchClick, onRunCode, onNewTerminal, onToggleTerminal }) {
         </div>
       </div>
 
-      {/* Center Section: Search */}
+      {/* CENTER */}
       <div className="center-section">
-        <div
-          className="search-wrapper"
-          onClick={() => {
-            if (typeof onSearchClick === "function") {
-              onSearchClick();
-            }
-          }}
-        >
+        <div className="search-wrapper" onClick={onSearchClick}>
           <img src={searchIcon} alt="Search" className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search"
-            className="search-input"
-            readOnly
-          />
+          <input type="text" placeholder="Search" className="search-input" readOnly />
         </div>
       </div>
 
-      {/* Right Section */}
+      {/* RIGHT */}
       <div className="right-section">
-        {/* Participants dropdown (left of Invite / Join) */}
-        <ParticipantsDropdown participants={exampleParticipants} />
+        <ParticipantsDropdown participants={participants} />
 
-        <button className="invite-btn">Invite</button>
-        <button className="join-btn">Join</button>
+        <button className="invite-btn" onClick={onInviteClick}>Invite</button>
+        <button className="join-btn" onClick={onJoinClick}>Join</button>
       </div>
     </div>
   );

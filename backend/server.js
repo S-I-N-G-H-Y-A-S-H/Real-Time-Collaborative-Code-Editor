@@ -21,6 +21,8 @@ app.use(bodyParser.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/execute", executeRoutes); // <-- NEW
 
+const roomsRoutes = require('./routes/rooms');
+app.use('/rooms', roomsRoutes);
 // --- Cleanup Logic ---
 const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour in ms
 

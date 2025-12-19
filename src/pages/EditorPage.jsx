@@ -1,9 +1,12 @@
 // src/pages/EditorPage.jsx
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import Editor from "@monaco-editor/react";
+
 import { useFile } from "../context/FileContext";
 import { useSidebar } from "../context/SidebarContext";
-import Editor from "@monaco-editor/react";
+import { useEditor } from "../context/EditorContext";
+import { useRoomSync } from "../context/RoomSyncContext";
 
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
@@ -12,28 +15,51 @@ import Footer from "../components/Footer";
 import TerminalComponent from "../components/Terminal";
 import Tabs from "../components/Tabs";
 
+import getLangInfo from "../utils/getLanguageFromFilename";
+
 import "../styles/EditorPage.css";
 
-import getLangInfo from "../utils/getLanguageFromFilename";
-import { useEditor } from "../context/EditorContext";
-
 function EditorPage() {
-  const {
-    currentFile,
-    setCurrentFile,
-    updateFileContent,
-    saveFile,
-  } = useFile();
+  const navigate = useNavigate();
+  const location = useLocation();
 
+  /* =========================
+     CONTEXTS
+     ========================= */
+
+  const { currentFile, updateFileContent, saveFile } = useFile();
   const { isVisible } = useSidebar();
+  const { setEditor } = useEditor();
+
+  const { roomId, currentView } = useRoomSync();
+
+  /* =========================
+     LOCAL STATE
+     ========================= */
+
   const [code, setCode] = useState("");
   const [showTerminal, setShowTerminal] = useState(false);
 
+  const editorRef = useRef(null);
   const terminalExecuteRef = useRef(null);
   const terminalResetRef = useRef(null);
-  const editorRef = useRef(null);
-  const { setEditor } = useEditor();
-  const location = useLocation();
+
+  /* =========================
+     VIEW GUARD (IMPORTANT)
+     ========================= */
+
+  // If server says editor is NOT active, force back to welcome
+  useEffect(() => {
+    if (!roomId) return;
+
+    if (currentView !== "editor") {
+      navigate("/welcome", { replace: true });
+    }
+  }, [currentView, roomId, navigate]);
+
+  /* =========================
+     FILE → EDITOR SYNC
+     ========================= */
 
   useEffect(() => {
     if (currentFile) {
@@ -43,26 +69,26 @@ function EditorPage() {
     }
   }, [currentFile]);
 
+  /* =========================
+     TERMINAL ACTIONS
+     ========================= */
+
   const runCurrentFile = () => {
     if (!currentFile) return;
 
     if (!showTerminal) {
       setShowTerminal(true);
       setTimeout(() => {
-        if (terminalExecuteRef.current) {
-          terminalExecuteRef.current(
-            currentFile.fileName,
-            currentFile.fileContent
-          );
-        }
-      }, 200);
-    } else {
-      if (terminalExecuteRef.current) {
-        terminalExecuteRef.current(
+        terminalExecuteRef.current?.(
           currentFile.fileName,
           currentFile.fileContent
         );
-      }
+      }, 200);
+    } else {
+      terminalExecuteRef.current?.(
+        currentFile.fileName,
+        currentFile.fileContent
+      );
     }
   };
 
@@ -70,25 +96,14 @@ function EditorPage() {
     if (!showTerminal) {
       setShowTerminal(true);
     } else {
-      if (terminalResetRef.current) {
-        terminalResetRef.current();
-      }
+      terminalResetRef.current?.();
     }
   };
 
-  // Auto-open command palette if redirected with state
-  useEffect(() => {
-    if (location.state?.openPalette) {
-      setTimeout(() => {
-        if (editorRef.current) {
-          editorRef.current.focus();
-          editorRef.current.trigger("source", "editor.action.quickCommand");
-        }
-      }, 300);
-    }
-  }, [location]);
+  /* =========================
+     KEYBOARD SHORTCUTS
+     ========================= */
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       const isMac = navigator.platform.toUpperCase().includes("MAC");
@@ -102,39 +117,37 @@ function EditorPage() {
       }
 
       // Save (Ctrl+S)
-      if (modKey && (e.key === "s" || e.key === "S")) {
+      if (modKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        e.stopPropagation();
-        if (currentFile) {
-          saveFile(currentFile).then((ok) => {
-            if (ok) {
-              console.log("Saved", currentFile.fileName);
-            } else {
-              console.warn("Save failed for", currentFile.fileName);
-            }
-          });
-        }
+        if (currentFile) saveFile(currentFile);
+        return;
       }
 
       // Run (Ctrl+F5)
       if (e.ctrlKey && e.key === "F5") {
         e.preventDefault();
         runCurrentFile();
+        return;
       }
 
       // Command Palette (Ctrl+Shift+P)
       if (modKey && e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
-        if (editorRef.current) {
-          editorRef.current.focus();
-          editorRef.current.trigger("source", "editor.action.quickCommand");
-        }
+        editorRef.current?.focus();
+        editorRef.current?.trigger(
+          "source",
+          "editor.action.quickCommand"
+        );
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentFile, saveFile, showTerminal]);
+  }, [currentFile, saveFile]);
+
+  /* =========================
+     EDITOR CHANGE
+     ========================= */
 
   const handleEditorChange = useCallback(
     (newCode) => {
@@ -146,24 +159,29 @@ function EditorPage() {
     [currentFile, updateFileContent]
   );
 
-  // FIXED: we use monacoLanguage instead of undefined Language
   const monacoLanguage = currentFile?.fileName
     ? getLangInfo(currentFile.fileName).monacoLang
     : "plaintext";
 
+  /* =========================
+     SEARCH / COMMAND PALETTE
+     ========================= */
+
   const handleSearchClick = () => {
-    if (editorRef.current) {
-      editorRef.current.focus();
-      editorRef.current.trigger("source", "editor.action.quickCommand");
-    }
+    editorRef.current?.focus();
+    editorRef.current?.trigger("source", "editor.action.quickCommand");
   };
+
+  /* =========================
+     RENDER
+     ========================= */
 
   return (
     <div className="editor-wrapper">
       <Header
         onRunCode={runCurrentFile}
         onNewTerminal={newTerminal}
-        onToggleTerminal={() => setShowTerminal((prev) => !prev)}
+        onToggleTerminal={() => setShowTerminal((p) => !p)}
         onSearchClick={handleSearchClick}
       />
 
@@ -180,13 +198,15 @@ function EditorPage() {
                 <div
                   className="code-section"
                   style={{
-                    height: showTerminal ? "calc(100% - 250px)" : "100%",
+                    height: showTerminal
+                      ? "calc(100% - 250px)"
+                      : "100%",
                   }}
                 >
                   <Editor
                     height="100%"
                     theme="vs-dark"
-                    language={monacoLanguage || "plaintext"}  // FIXED HERE
+                    language={monacoLanguage}
                     value={code}
                     onChange={handleEditorChange}
                     options={{

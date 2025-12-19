@@ -1,45 +1,99 @@
 // src/pages/WelcomePage.jsx
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useFile } from '../context/FileContext';
-import { useSidebar } from '../context/SidebarContext';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-import Header from '../components/Header';
-import Sidebar from '../components/Sidebar';
-import SidebarPanel from '../components/SidebarPanel';
-import Footer from '../components/Footer';
-import NewFileModal from '../components/NewFileModal';
+import { useFile } from "../context/FileContext";
+import { useSidebar } from "../context/SidebarContext";
+import { useRoomSync } from "../context/RoomSyncContext";
 
-import logo from '../assets/logo.png';
-import newFileIcon from '../assets/new-file.png';
-import openFileIcon from '../assets/open-file.png';
-import openFolderIcon from '../assets/open-folder.png';
+import Header from "../components/Header";
+import Sidebar from "../components/Sidebar";
+import SidebarPanel from "../components/SidebarPanel";
+import Footer from "../components/Footer";
+import NewFileModal from "../components/NewFileModal";
+import InviteJoinModal from "../components/InviteJoinModal";
 
-import { createFile, openFile } from '../services/FileSystem';
+import logo from "../assets/logo.png";
+import newFileIcon from "../assets/new-file.png";
+import openFileIcon from "../assets/open-file.png";
+import openFolderIcon from "../assets/open-folder.png";
 
-import '../styles/WelcomePage.css';
+import { createFile, openFile } from "../services/FileSystem";
+
+import "../styles/WelcomePage.css";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const HOST_ROOM_KEY = "codesync_hostRoomId";
 
 function WelcomePage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
-  const { openFolder, openFileFromTree, shouldRedirectToEditor, setShouldRedirectToEditor } = useFile();
+
+  /* =========================
+     CONTEXTS
+     ========================= */
+
+  const { openFolder, openFileFromTree } = useFile();
   const { isVisible } = useSidebar();
 
-  // 🔒 Redirect to login if no token
+  const {
+    roomId,
+    isHost,
+    currentView,
+    joinRoom,
+    syncViewAsHost,
+  } = useRoomSync();
+
+  /* =========================
+     LOCAL STATE
+     ========================= */
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isJoinOpen, setIsJoinOpen] = useState(false);
+
+  const [hostRoomId, setHostRoomId] = useState(null);
+  const [creatingRoom, setCreatingRoom] = useState(false);
+
+  /* =========================
+     AUTH GUARD
+     ========================= */
+
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/login");
-    }
+    if (!token) navigate("/login");
   }, [navigate]);
 
-  // ✅ Watch for redirect flag from context
+  /* =========================
+     RESTORE HOST ROOM
+     ========================= */
+
   useEffect(() => {
-    if (shouldRedirectToEditor) {
-      navigate("/editor", { replace: true });
-      setShouldRedirectToEditor(false); // reset after navigating
+    const saved = localStorage.getItem(HOST_ROOM_KEY);
+    if (saved) setHostRoomId(saved);
+  }, []);
+
+  useEffect(() => {
+    if (hostRoomId) {
+      localStorage.setItem(HOST_ROOM_KEY, hostRoomId);
+    } else {
+      localStorage.removeItem(HOST_ROOM_KEY);
     }
-  }, [shouldRedirectToEditor, navigate, setShouldRedirectToEditor]);
+  }, [hostRoomId]);
+
+  /* =========================
+     VIEW SYNC (CRITICAL)
+     ========================= */
+
+  // If host switches to editor, everyone follows
+  useEffect(() => {
+    if (currentView === "editor") {
+      navigate("/editor", { replace: true });
+    }
+  }, [currentView, navigate]);
+
+  /* =========================
+     FILE / FOLDER ACTIONS
+     ========================= */
 
   const handleNewFileClick = () => setIsModalOpen(true);
 
@@ -50,9 +104,14 @@ function WelcomePage() {
       if (fileData?.fileHandle) {
         await openFileFromTree(fileData.fileHandle);
       }
-      navigate('/editor');
+
+      if (roomId && isHost) {
+        syncViewAsHost("editor");
+      } else {
+        navigate("/editor");
+      }
     } catch (err) {
-      console.error("File creation cancelled or failed:", err);
+      console.error(err);
     }
   };
 
@@ -62,77 +121,153 @@ function WelcomePage() {
       if (fileData?.fileHandle) {
         await openFileFromTree(fileData.fileHandle);
       }
-      navigate('/editor');
+
+      if (roomId && isHost) {
+        syncViewAsHost("editor");
+      } else {
+        navigate("/editor");
+      }
     } catch (err) {
-      console.error("File open cancelled or failed:", err);
+      console.error(err);
     }
   };
 
   const handleOpenFolder = async () => {
     try {
-      await openFolder(); // ✅ just triggers flag now
+      await openFolder();
+
+      if (roomId && isHost) {
+        syncViewAsHost("editor");
+      } else {
+        navigate("/editor");
+      }
     } catch (err) {
-      console.error("Folder open cancelled or failed:", err);
+      console.error(err);
     }
   };
 
   const handleSearchClick = () => {
-    // Redirect to EditorPage and tell it to open palette
+    if (roomId && isHost) {
+      syncViewAsHost("editor");
+    }
     navigate("/editor", { state: { openPalette: true } });
   };
 
+  /* =========================
+     ROOM / INVITE LOGIC
+     ========================= */
+
+  async function createRoomOnServer(name = "Shared Session") {
+    try {
+      setCreatingRoom(true);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/rooms`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token || "",
+        },
+        body: JSON.stringify({ name }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) return null;
+
+      return data.roomId || data.room?._id || null;
+    } catch {
+      return null;
+    } finally {
+      setCreatingRoom(false);
+    }
+  }
+
+  // Host clicks Invite
+  const handleInviteClick = async () => {
+    if (hostRoomId) {
+      joinRoom(hostRoomId);
+      setIsInviteOpen(true);
+      return;
+    }
+
+    const rid = await createRoomOnServer();
+    if (rid) {
+      setHostRoomId(rid);
+      joinRoom(rid);
+      setIsInviteOpen(true);
+    }
+  };
+
+  const handleJoinClick = () => setIsJoinOpen(true);
+
+  /* =========================
+     RENDER
+     ========================= */
+
   return (
     <div className="welcome-wrapper">
-      <Header onSearchClick={handleSearchClick} />
+      <Header
+        onSearchClick={handleSearchClick}
+        onInviteClick={handleInviteClick}
+        onJoinClick={handleJoinClick}
+      />
 
       <div className="body-layout">
         <Sidebar />
         {isVisible && <SidebarPanel />}
 
         <div className="welcome-body">
-          {/* Left Section */}
           <div className="welcome-left">
             <h1 className="welcome-heading">Welcome to Code Sync</h1>
 
             <div className="start-section">
-              <h3 style={{ color: '#74ff4e' }}>Start</h3>
+              <h3 style={{ color: "#74ff4e" }}>Start</h3>
 
               <button className="action-btn" onClick={handleNewFileClick}>
-                <img src={newFileIcon} alt="New File" className="action-icon" />
+                <img src={newFileIcon} alt="" className="action-icon" />
                 New File
               </button>
 
               <button className="action-btn" onClick={handleOpenFile}>
-                <img src={openFileIcon} alt="Open File" className="action-icon" />
+                <img src={openFileIcon} alt="" className="action-icon" />
                 Open File
               </button>
 
               <button className="action-btn" onClick={handleOpenFolder}>
-                <img src={openFolderIcon} alt="Open Folder" className="action-icon" />
+                <img src={openFolderIcon} alt="" className="action-icon" />
                 Open Folder
               </button>
             </div>
           </div>
 
-          {/* Center Logo */}
           <div className="welcome-logo-center">
             <img src={logo} alt="Logo" className="translucent-logo" />
           </div>
 
-          {/* Right Side Options */}
-          <div className="welcome-right">{/* empty for now */}</div>
+          <div className="welcome-right" />
         </div>
       </div>
 
       <Footer />
 
-      {/* Modal */}
       {isModalOpen && (
         <NewFileModal
           onCreate={handleCreateNewFile}
           onClose={() => setIsModalOpen(false)}
         />
       )}
+
+      <InviteJoinModal
+        isOpen={isInviteOpen}
+        mode="invite"
+        roomId={hostRoomId}
+        onClose={() => setIsInviteOpen(false)}
+      />
+
+      <InviteJoinModal
+        isOpen={isJoinOpen}
+        mode="join"
+        onClose={() => setIsJoinOpen(false)}
+      />
     </div>
   );
 }

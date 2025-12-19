@@ -1,58 +1,68 @@
 // src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+import { FileProvider } from "./context/FileContext";
+import { SidebarProvider } from "./context/SidebarContext";
+import { EditorProvider } from "./context/EditorContext";
+import { RoomSyncProvider } from "./context/RoomSyncContext";
+
 import WelcomePage from "./pages/WelcomePage";
 import EditorPage from "./pages/EditorPage";
-import SignupPage from "./pages/SignupPage";
 import LoginPage from "./pages/LoginPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import { EditorProvider } from "./context/EditorContext"; // ⬅️ import
+import SignupPage from "./pages/SignupPage";
 
-// Helper component for protecting routes
-const ProtectedRoute = ({ children }) => {
+/**
+ * Simple auth guard
+ * (you already use token-based auth)
+ */
+function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
-  return token ? children : <Navigate to="/login" />;
-};
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
 
 function App() {
-  const token = localStorage.getItem("token");
-
   return (
-    <EditorProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Default route - redirect depending on login */}
-          <Route
-            path="/"
-            element={token ? <WelcomePage /> : <Navigate to="/login" />}
-          />
+    <BrowserRouter>
+      <FileProvider>
+        <SidebarProvider>
+          <EditorProvider>
+            {/* 🔑 REQUIRED FOR ROOM + SOCKET SYNC */}
+            <RoomSyncProvider>
+              <Routes>
+                {/* Auth */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
 
-          {/* Auth routes */}
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+                {/* App */}
+                <Route
+                  path="/welcome"
+                  element={
+                    <ProtectedRoute>
+                      <WelcomePage />
+                    </ProtectedRoute>
+                  }
+                />
 
-          {/* Protected routes */}
-          <Route
-            path="/welcome"
-            element={
-              <ProtectedRoute>
-                <WelcomePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/editor"
-            element={
-              <ProtectedRoute>
-                <EditorPage />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
-    </EditorProvider>
+                <Route
+                  path="/editor"
+                  element={
+                    <ProtectedRoute>
+                      <EditorPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Default */}
+                <Route path="*" element={<Navigate to="/welcome" replace />} />
+              </Routes>
+            </RoomSyncProvider>
+          </EditorProvider>
+        </SidebarProvider>
+      </FileProvider>
+    </BrowserRouter>
   );
 }
 
