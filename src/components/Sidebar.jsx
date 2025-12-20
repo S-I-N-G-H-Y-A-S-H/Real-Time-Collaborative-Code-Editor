@@ -1,8 +1,8 @@
 // src/components/Sidebar.jsx
+import { useState, useMemo } from "react";
 import { useSidebar } from "../context/SidebarContext";
 import { useFile } from "../context/FileContext";
-import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useProject } from "../context/ProjectContext";
 
 import file from "../assets/file-icon.png";
 import search from "../assets/search-icon.png";
@@ -22,26 +22,63 @@ import refreshIcon from "../assets/refreshExplorer.png";
 import "../styles/Sidebar.css";
 import NewItemModal from "./NewItemModal";
 import ProjectTree from "./ProjectTree";
-
-// NEW: profile button component (renders original icon and dropdown)
 import ProfileButton from "./ProfileButton";
 
 function Sidebar() {
   const { activePanel, setActivePanel } = useSidebar();
-  const {
-    projectTree,
-    openFolder,
-    openFileFromTree,
-    createNewFile,
-    createNewFolder,
-    refreshProjectTree,
-    currentFile,
-    rootFolderName,
-    dirHandle,
-    renameItem,
-    deleteItem,
-  } = useFile();
-  const navigate = useNavigate();
+
+  const fileCtx = useFile();
+  const projectCtx = useProject();
+
+  /**
+   * 🔑 MODE DETECTION
+   * ProjectContext is the source of truth
+   */
+  const isCollaborative = Boolean(projectCtx.project?.id);
+
+  /**
+   * ======================
+   * SIDEBAR SOURCE ADAPTER
+   * ======================
+   * UI stays identical — only data switches
+   */
+  const sidebarSource = useMemo(() => {
+    if (isCollaborative) {
+      return {
+        // 🚀 COLLABORATIVE MODE (DB-backed)
+        projectTree: projectCtx.project.tree || [],
+        currentFile: projectCtx.activeFile,
+        rootFolderName:
+          projectCtx.project.name || "Collaborative Project",
+        canOpenFolder: false,
+
+        openFolder: () => {},
+        openFile: (node) => projectCtx.openFile(node.path),
+
+        createFile: async (name) => projectCtx.createFile(name),
+        createFolder: async () => {}, // phase-2
+        renameItem: async () => {},   // phase-2
+        deleteItem: async () => {},   // phase-2
+        refreshTree: () => {},        // phase-2
+      };
+    }
+
+    // ✅ LOCAL FILESYSTEM MODE
+    return {
+      projectTree: fileCtx.projectTree,
+      currentFile: fileCtx.currentFile,
+      rootFolderName: fileCtx.rootFolderName,
+      canOpenFolder: !fileCtx.dirHandle,
+
+      openFolder: fileCtx.openFolder,
+      openFile: (node) => fileCtx.openFileFromTree(node.handle),
+      createFile: fileCtx.createNewFile,
+      createFolder: fileCtx.createNewFolder,
+      renameItem: fileCtx.renameItem,
+      deleteItem: fileCtx.deleteItem,
+      refreshTree: fileCtx.refreshProjectTree,
+    };
+  }, [isCollaborative, fileCtx, projectCtx]);
 
   const [rootCollapsed, setRootCollapsed] = useState(false);
   const [modalType, setModalType] = useState(null);
@@ -55,51 +92,61 @@ function Sidebar() {
     { id: "extensions", icon: extension, alt: "Extensions" },
   ];
 
-  // Keep settings in bottom icons; profile is rendered as ProfileButton
   const sectionsBottom = [{ id: "settings", icon: settings, alt: "Settings" }];
 
   const handleConfirm = async (name) => {
     if (modalType === "file") {
-      await createNewFile(name, selectedItem);
+      await sidebarSource.createFile(name, selectedItem);
     } else if (modalType === "folder") {
-      await createNewFolder(name, selectedItem);
+      await sidebarSource.createFolder(name, selectedItem);
     }
     setModalType(null);
   };
 
   return (
     <div className="sidebar">
-      {/* Top Section (icons) */}
+      {/* Top Icons */}
       <div className="sidebar-section">
         {sectionsTop.map((s) => (
           <img
             key={s.id}
             src={s.icon}
             alt={s.alt}
-            className={`sidebar-icon ${activePanel === s.id ? "active" : ""}`}
-            onClick={() => setActivePanel(activePanel === s.id ? null : s.id)}
+            className={`sidebar-icon ${
+              activePanel === s.id ? "active" : ""
+            }`}
+            onClick={() =>
+              setActivePanel(activePanel === s.id ? null : s.id)
+            }
           />
         ))}
       </div>
 
-      {/* Bottom Section (profile + other icons) */}
+      {/* Bottom Icons */}
       <div
         className="sidebar-section bottom"
-        style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          alignItems: "center",
+        }}
       >
-        {/* Profile icon (keeps your existing image) */}
         <div style={{ marginBottom: 6 }}>
           <ProfileButton icon={profile} />
         </div>
 
-        {/* Other bottom icons (e.g., settings) */}
         {sectionsBottom.map((s) => (
           <img
             key={s.id}
             src={s.icon}
             alt={s.alt}
-            className={`sidebar-icon ${activePanel === s.id ? "active" : ""}`}
-            onClick={() => setActivePanel(activePanel === s.id ? null : s.id)}
+            className={`sidebar-icon ${
+              activePanel === s.id ? "active" : ""
+            }`}
+            onClick={() =>
+              setActivePanel(activePanel === s.id ? null : s.id)
+            }
           />
         ))}
       </div>
@@ -107,10 +154,15 @@ function Sidebar() {
       {/* Explorer Panel */}
       {activePanel === "explorer" && (
         <div className="sidebar-expanded">
-          {!dirHandle ? (
+          {sidebarSource.canOpenFolder ? (
             <>
-              <p className="no-folder-text">You have not yet opened a folder.</p>
-              <button className="open-folder-btn" onClick={openFolder}>
+              <p className="no-folder-text">
+                You have not yet opened a folder.
+              </p>
+              <button
+                className="open-folder-btn"
+                onClick={sidebarSource.openFolder}
+              >
                 <img src={folderIcon} className="btn-icon" /> Open Folder
               </button>
             </>
@@ -119,41 +171,66 @@ function Sidebar() {
               {/* Root Header */}
               <div className="explorer-header">
                 <img
-                  src={rootCollapsed ? unCollapseIcon : collapseIcon}
+                  src={
+                    rootCollapsed ? unCollapseIcon : collapseIcon
+                  }
                   className="explorer-icon"
-                  onClick={() => setRootCollapsed(!rootCollapsed)}
+                  onClick={() =>
+                    setRootCollapsed(!rootCollapsed)
+                  }
                 />
                 <span
-                  className={`project-name ${selectedItem?.type === "root" ? "selected" : ""}`}
+                  className={`project-name ${
+                    selectedItem?.type === "root"
+                      ? "selected"
+                      : ""
+                  }`}
                   onClick={() =>
                     setSelectedItem({
                       type: "root",
-                      path: rootFolderName,
-                      name: rootFolderName,
+                      path: sidebarSource.rootFolderName,
+                      name: sidebarSource.rootFolderName,
                     })
                   }
                 >
-                  {rootFolderName}
+                  {sidebarSource.rootFolderName}
                 </span>
+
                 <div className="explorer-actions">
-                  <img src={newFileIcon} className="explorer-icon" onClick={() => setModalType("file")} />
-                  <img src={newFolderIcon} className="explorer-icon" onClick={() => setModalType("folder")} />
-                  <img src={refreshIcon} className="explorer-icon" onClick={refreshProjectTree} />
+                  <img
+                    src={newFileIcon}
+                    className="explorer-icon"
+                    onClick={() => setModalType("file")}
+                  />
+
+                  {!isCollaborative && (
+                    <img
+                      src={newFolderIcon}
+                      className="explorer-icon"
+                      onClick={() =>
+                        setModalType("folder")
+                      }
+                    />
+                  )}
+
+                  <img
+                    src={refreshIcon}
+                    className="explorer-icon"
+                    onClick={sidebarSource.refreshTree}
+                  />
                 </div>
               </div>
 
-              {/* Tree */}
               {!rootCollapsed && (
                 <ProjectTree
-                  projectTree={projectTree}
-                  currentFile={currentFile}
+                  projectTree={sidebarSource.projectTree}
+                  currentFile={sidebarSource.currentFile}
                   selectedItem={selectedItem}
                   setSelectedItem={setSelectedItem}
-                  openFileFromTree={openFileFromTree}
-                  renameItem={renameItem}
-                  deleteItem={deleteItem}
-                  rootFolderName={rootFolderName}
-                  refreshProjectTree={refreshProjectTree}
+                  onOpenFile={sidebarSource.openFile}
+                  onRenameItem={sidebarSource.renameItem}
+                  onDeleteItem={sidebarSource.deleteItem}
+                  rootFolderName={sidebarSource.rootFolderName}
                 />
               )}
             </>
@@ -161,8 +238,13 @@ function Sidebar() {
         </div>
       )}
 
-      {/* Modal for New File/Folder */}
-      {modalType && <NewItemModal type={modalType} onConfirm={handleConfirm} onCancel={() => setModalType(null)} />}
+      {modalType && (
+        <NewItemModal
+          type={modalType}
+          onConfirm={handleConfirm}
+          onCancel={() => setModalType(null)}
+        />
+      )}
     </div>
   );
 }

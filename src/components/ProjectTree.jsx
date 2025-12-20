@@ -1,7 +1,6 @@
 // src/components/ProjectTree.jsx
 import { useState, useEffect } from "react";
 import { getFileIcon } from "../utils/fileIcons";
-import { useFile } from "../context/FileContext";
 
 import collapseIcon from "../assets/collapseIcon.png";
 import unCollapseIcon from "../assets/unCollapsed.png";
@@ -13,9 +12,9 @@ function ProjectTree({
   currentFile,
   selectedItem,
   setSelectedItem,
-  openFileFromTree,
-  renameItem,
-  deleteItem,
+  onOpenFile,
+  onRenameItem,
+  onDeleteItem,
   rootFolderName,
 }) {
   const [collapsedFolders, setCollapsedFolders] = useState({});
@@ -23,86 +22,54 @@ function ProjectTree({
   const [tempName, setTempName] = useState("");
   const [contextMenu, setContextMenu] = useState(null);
 
-  // 🔗 pull from FileContext to update tabs
-  const { openFiles, setOpenFiles, closeFile, setCurrentFile } = useFile();
-
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!selectedItem) return;
+
       if (e.key === "F2") {
         setEditingPath(selectedItem.path);
         setTempName(selectedItem.name);
-      } else if (e.key === "Delete") {
-        handleDelete(selectedItem);
+      }
+
+      if (e.key === "Delete") {
+        onDeleteItem(selectedItem);
         setSelectedItem(null);
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
 
     const handleClickOutside = () => setContextMenu(null);
+
+    window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("click", handleClickOutside);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("click", handleClickOutside);
     };
-  }, [selectedItem]);
+  }, [selectedItem, onDeleteItem]);
 
   const toggleFolder = (path) => {
     setCollapsedFolders((prev) => ({ ...prev, [path]: !prev[path] }));
   };
 
-  const handleRenameSubmit = async (node, fullPath) => {
-    const newName = tempName?.trim();
+  const submitRename = async (node, fullPath) => {
+    const newName = tempName.trim();
     if (!newName || newName === node.name) {
       setEditingPath(null);
       setTempName("");
       return;
     }
-    const ok = await renameItem(fullPath, newName, node.type);
-    if (ok && node.type === "file") {
-      // 🔄 update open files + current file instantly
-      setOpenFiles((prev) =>
-        prev.map((f) =>
-          f.fileName === node.name ? { ...f, fileName: newName } : f
-        )
-      );
-      if (currentFile?.fileName === node.name) {
-        setCurrentFile({ ...currentFile, fileName: newName });
-      }
-    }
-    if (ok) {
-      setSelectedItem({
-        ...node,
-        name: newName,
-        path: fullPath.replace(node.name, newName),
-      });
-    }
+
+    await onRenameItem(fullPath, newName, node.type);
+
+    setSelectedItem({
+      ...node,
+      name: newName,
+      path: fullPath.replace(node.name, newName),
+    });
+
     setEditingPath(null);
     setTempName("");
-  };
-
-  const handleContextMenu = (e, node, fullPath) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setSelectedItem({ ...node, path: fullPath });
-    setContextMenu({
-      x: e.pageX,
-      y: e.pageY,
-      item: { ...node, path: fullPath },
-    });
-  };
-
-  const handleDelete = async (item) => {
-    if (!item) return;
-    const ok = await deleteItem(item.path, item.type);
-    if (ok && item.type === "file") {
-      // ❌ also close any matching open tabs
-      openFiles
-        .filter((f) => f.fileName === item.name)
-        .forEach((f) => closeFile(f.fileHandle));
-    }
-    setContextMenu(null);
   };
 
   const renderTree = (nodes = [], parentPath = "") =>
@@ -111,29 +78,32 @@ function ProjectTree({
 
       if (node.type === "file") {
         const isActive = currentFile?.fileName === node.name;
+
         return (
           <div
             key={fullPath}
             className={`file-item ${isActive ? "active-file" : ""} ${
-              selectedItem?.path === fullPath && editingPath !== fullPath
-                ? "selected"
-                : ""
+              selectedItem?.path === fullPath ? "selected" : ""
             }`}
             onClick={(e) => {
               e.stopPropagation();
-              setSelectedItem({ ...node, type: "file", path: fullPath });
-              openFileFromTree(node.handle);
+              setSelectedItem({ ...node, path: fullPath });
+              onOpenFile(node);
             }}
-            onContextMenu={(e) => handleContextMenu(e, node, fullPath)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setSelectedItem({ ...node, path: fullPath });
+              setContextMenu({ x: e.pageX, y: e.pageY, item: node, path: fullPath });
+            }}
           >
             {editingPath === fullPath ? (
               <input
-                value={tempName}
                 autoFocus
+                value={tempName}
                 onChange={(e) => setTempName(e.target.value)}
-                onBlur={() => handleRenameSubmit(node, fullPath)}
+                onBlur={() => submitRename(node, fullPath)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRenameSubmit(node, fullPath);
+                  if (e.key === "Enter") submitRename(node, fullPath);
                   if (e.key === "Escape") {
                     setEditingPath(null);
                     setTempName("");
@@ -151,22 +121,20 @@ function ProjectTree({
       }
 
       if (node.type === "folder") {
-        const isCollapsed = collapsedFolders[fullPath] || false;
-        const isSelected = selectedItem?.path === fullPath;
+        const isCollapsed = collapsedFolders[fullPath];
+
         return (
-          <div
-            key={fullPath}
-            className={`folder-item ${
-              isSelected && editingPath !== fullPath ? "selected" : ""
-            }`}
-          >
+          <div key={fullPath} className="folder-item">
             <div
-              className="folder-header"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedItem({ ...node, type: "folder", path: fullPath });
+              className={`folder-header ${
+                selectedItem?.path === fullPath ? "selected" : ""
+              }`}
+              onClick={() => setSelectedItem({ ...node, path: fullPath })}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setSelectedItem({ ...node, path: fullPath });
+                setContextMenu({ x: e.pageX, y: e.pageY, item: node, path: fullPath });
               }}
-              onContextMenu={(e) => handleContextMenu(e, node, fullPath)}
             >
               <img
                 src={isCollapsed ? unCollapseIcon : collapseIcon}
@@ -178,36 +146,21 @@ function ProjectTree({
               />
               {editingPath === fullPath ? (
                 <input
-                  value={tempName}
                   autoFocus
+                  value={tempName}
                   onChange={(e) => setTempName(e.target.value)}
-                  onBlur={() => handleRenameSubmit(node, fullPath)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleRenameSubmit(node, fullPath);
-                    if (e.key === "Escape") {
-                      setEditingPath(null);
-                      setTempName("");
-                    }
-                  }}
+                  onBlur={() => submitRename(node, fullPath)}
                 />
               ) : (
-                <span
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    toggleFolder(fullPath);
-                  }}
-                >
-                  {node.name}
-                </span>
+                <span>{node.name}</span>
               )}
             </div>
-            {!isCollapsed &&
-              Array.isArray(node.children) &&
-              node.children.length > 0 && (
-                <div className="folder-children">
-                  {renderTree(node.children, fullPath)}
-                </div>
-              )}
+
+            {!isCollapsed && node.children && (
+              <div className="folder-children">
+                {renderTree(node.children, fullPath)}
+              </div>
+            )}
           </div>
         );
       }
@@ -239,7 +192,7 @@ function ProjectTree({
         >
           <li
             onClick={() => {
-              setEditingPath(contextMenu.item.path);
+              setEditingPath(contextMenu.path);
               setTempName(contextMenu.item.name);
               setContextMenu(null);
             }}
@@ -248,7 +201,8 @@ function ProjectTree({
           </li>
           <li
             onClick={() => {
-              handleDelete(contextMenu.item);
+              onDeleteItem({ ...contextMenu.item, path: contextMenu.path });
+              setContextMenu(null);
             }}
           >
             Delete <span className="shortcut">Del</span>

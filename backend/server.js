@@ -6,7 +6,8 @@ const bodyParser = require("body-parser");
 require("dotenv").config();
 
 const authRoutes = require("./routes/authRoutes");
-const executeRoutes = require("./routes/execute"); // <-- NEW
+const executeRoutes = require("./routes/execute");
+const projectsRoutes = require("./routes/projects"); // <-- NEW
 
 const User = require("./models/User");
 
@@ -19,7 +20,8 @@ app.use(bodyParser.json());
 
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/execute", executeRoutes); // <-- NEW
+app.use("/api/execute", executeRoutes);
+app.use("/projects", projectsRoutes); // <-- NEW
 
 const roomsRoutes = require('./routes/rooms');
 app.use('/rooms', roomsRoutes);

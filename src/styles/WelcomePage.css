@@ -1,110 +1,180 @@
-/* Entire page container: vertical layout */
+/* ===== Layout ===== */
 .welcome-wrapper {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    background-color: #1e1e1e;
-    color: white;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #1e1e1e;
+  color: white;
 }
 
-/* Sidebar + Main content */
 .body-layout {
-    display: flex;
-    flex: 1;
-    /* pushes footer to the bottom */
-    overflow: hidden;
+  display: flex;
+  flex: 1;
+  overflow: hidden;
 }
 
-/* Main welcome body area (right of sidebar) */
 .welcome-body {
-    flex-grow: 1;
-    display: flex;
-    position: relative;
-    padding: 20px 40px;
+  flex-grow: 1;
+  display: flex;
+  position: relative;
+  padding: 20px 40px;
 }
 
-/* ====== Left Section ====== */
+/* ===== Left Section ===== */
 .welcome-left {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .welcome-heading {
-    font-size: 1.8rem;
-    margin-bottom: 30px;
+  font-size: 1.8rem;
+  margin-bottom: 30px;
 }
 
-/* Start section */
 .start-section {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-/* Green Buttons with icons */
+/* ===== Action Buttons ===== */
 .action-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background-color: #333;
-    border: 1px solid #555;
-    color: #74ff4e;
-    font-weight: 500;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: background 0.2s;
-    width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background-color: #333;
+  border: 1px solid #555;
+  color: #74ff4e;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+  width: fit-content;
 }
 
 .action-btn:hover {
-    background-color: #444;
+  background-color: #444;
 }
 
-/* Icon next to New/Open/Open Folder */
 .action-icon {
-    width: 20px;
-    height: 20px;
-    object-fit: contain;
+  width: 20px;
+  height: 20px;
 }
 
-/* ====== Center Logo ====== */
+/* ===== Center Logo ===== */
 .welcome-logo-center {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    opacity: 0.05;
-    pointer-events: none;
-    user-select: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.05;
+  pointer-events: none;
 }
 
 .translucent-logo {
-    width: 350px;
-    height: auto;
+  width: 350px;
 }
 
-/* ====== Right Buttons ====== */
-.welcome-right {
-    position: absolute;
-    right: 40px;
-    top: 60px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+/* ===== Modal Overlay ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
 
-.invite-btn,
-.join-btn {
-    padding: 8px 14px;
-    background-color: #2e2e2e;
-    color: white;
-    border: 1px solid #555;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.2s;
-    margin-right: 10px;
+/* ===== Modal Container ===== */
+.modal-container {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 20px 24px;
+  width: 360px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  animation: modalFadeIn 0.15s ease-out;
+}
+
+.modal-container h3 {
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.modal-container input {
+  width: 100%;
+  padding: 8px 10px;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.modal-container input:focus {
+  border-color: #74ff4e;
+}
+
+/* ===== Modal Actions ===== */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal-actions button {
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+}
+
+.modal-actions button:first-child {
+  background: #74ff4e;
+  color: #000;
+}
+
+.modal-actions button:last-child {
+  background: transparent;
+  color: #ccc;
+}
+
+/* ===== Project List ===== */
+.project-list {
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.project-list-item {
+  padding: 8px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #ccc;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.project-list-item:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.project-list-item.selected {
+  background: rgba(116, 255, 78, 0.15);
+  color: #74ff4e;
+  border-left: 3px solid #74ff4e;
+}
+
+/* ===== Animation ===== */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

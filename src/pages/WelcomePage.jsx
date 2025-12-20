@@ -5,20 +5,18 @@ import { useNavigate } from "react-router-dom";
 import { useFile } from "../context/FileContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useRoomSync } from "../context/RoomSyncContext";
+import { useProject } from "../context/ProjectContext"; // ✅ NEW
 
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import SidebarPanel from "../components/SidebarPanel";
 import Footer from "../components/Footer";
-import NewFileModal from "../components/NewFileModal";
 import InviteJoinModal from "../components/InviteJoinModal";
 
 import logo from "../assets/logo.png";
+import openFolderIcon from "../assets/open-folder.png";
 import newFileIcon from "../assets/new-file.png";
 import openFileIcon from "../assets/open-file.png";
-import openFolderIcon from "../assets/open-folder.png";
-
-import { createFile, openFile } from "../services/FileSystem";
 
 import "../styles/WelcomePage.css";
 
@@ -31,33 +29,32 @@ function WelcomePage() {
   /* =========================
      CONTEXTS
      ========================= */
-
-  const { openFolder, openFileFromTree } = useFile();
+  const { openFolder } = useFile();
   const { isVisible } = useSidebar();
-
-  const {
-    roomId,
-    isHost,
-    currentView,
-    joinRoom,
-    syncViewAsHost,
-  } = useRoomSync();
+  const { roomId, isHost, currentView, joinRoom, syncViewAsHost } =
+    useRoomSync();
+  const { createProject } = useProject(); // ✅ NEW
 
   /* =========================
      LOCAL STATE
      ========================= */
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
 
   const [hostRoomId, setHostRoomId] = useState(null);
   const [creatingRoom, setCreatingRoom] = useState(false);
 
+  const [showCreateProjectModal, setShowCreateProjectModal] =
+    useState(false);
+  const [showOpenProjectModal, setShowOpenProjectModal] =
+    useState(false);
+
+  const [projectName, setProjectName] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+
   /* =========================
      AUTH GUARD
      ========================= */
-
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) navigate("/login");
@@ -66,25 +63,19 @@ function WelcomePage() {
   /* =========================
      RESTORE HOST ROOM
      ========================= */
-
   useEffect(() => {
     const saved = localStorage.getItem(HOST_ROOM_KEY);
     if (saved) setHostRoomId(saved);
   }, []);
 
   useEffect(() => {
-    if (hostRoomId) {
-      localStorage.setItem(HOST_ROOM_KEY, hostRoomId);
-    } else {
-      localStorage.removeItem(HOST_ROOM_KEY);
-    }
+    if (hostRoomId) localStorage.setItem(HOST_ROOM_KEY, hostRoomId);
+    else localStorage.removeItem(HOST_ROOM_KEY);
   }, [hostRoomId]);
 
   /* =========================
-     VIEW SYNC (CRITICAL)
+     VIEW SYNC
      ========================= */
-
-  // If host switches to editor, everyone follows
   useEffect(() => {
     if (currentView === "editor") {
       navigate("/editor", { replace: true });
@@ -92,71 +83,51 @@ function WelcomePage() {
   }, [currentView, navigate]);
 
   /* =========================
-     FILE / FOLDER ACTIONS
+     ACTIONS
      ========================= */
 
-  const handleNewFileClick = () => setIsModalOpen(true);
-
-  const handleCreateNewFile = async (fileName) => {
-    setIsModalOpen(false);
-    try {
-      const fileData = await createFile(fileName);
-      if (fileData?.fileHandle) {
-        await openFileFromTree(fileData.fileHandle);
-      }
-
-      if (roomId && isHost) {
-        syncViewAsHost("editor");
-      } else {
-        navigate("/editor");
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleOpenFile = async () => {
-    try {
-      const fileData = await openFile();
-      if (fileData?.fileHandle) {
-        await openFileFromTree(fileData.fileHandle);
-      }
-
-      if (roomId && isHost) {
-        syncViewAsHost("editor");
-      } else {
-        navigate("/editor");
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleOpenFolder = async () => {
+  // Open Local Project
+  const handleOpenLocalProject = async () => {
     try {
       await openFolder();
-
-      if (roomId && isHost) {
-        syncViewAsHost("editor");
-      } else {
-        navigate("/editor");
-      }
+      if (roomId && isHost) syncViewAsHost("editor");
+      else navigate("/editor");
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleSearchClick = () => {
+  // Create Collaborative Project
+  const handleCreateCollaborativeProject = () => {
+    setProjectName("");
+    setShowCreateProjectModal(true);
+  };
+
+  // ✅ WIRED TO PROJECT CONTEXT
+  const handleConfirmCreateProject = async () => {
+    if (!projectName.trim()) return;
+
+    const created = await createProject(projectName.trim());
+    if (!created) return;
+
+    setShowCreateProjectModal(false);
+
     if (roomId && isHost) {
       syncViewAsHost("editor");
+    } else {
+      navigate("/editor");
     }
-    navigate("/editor", { state: { openPalette: true } });
+  };
+
+  // Open Collaborative Project (UI only for now)
+  const handleOpenCollaborativeProject = () => {
+    setSelectedProjectId(null);
+    setShowOpenProjectModal(true);
   };
 
   /* =========================
-     ROOM / INVITE LOGIC
+     ROOM / INVITE
      ========================= */
-
   async function createRoomOnServer(name = "Shared Session") {
     try {
       setCreatingRoom(true);
@@ -172,16 +143,12 @@ function WelcomePage() {
 
       const data = await res.json();
       if (!res.ok) return null;
-
       return data.roomId || data.room?._id || null;
-    } catch {
-      return null;
     } finally {
       setCreatingRoom(false);
     }
   }
 
-  // Host clicks Invite
   const handleInviteClick = async () => {
     if (hostRoomId) {
       joinRoom(hostRoomId);
@@ -200,16 +167,16 @@ function WelcomePage() {
   const handleJoinClick = () => setIsJoinOpen(true);
 
   /* =========================
+     MOCK PROJECT LIST
+     ========================= */
+  const mockProjects = ["Sample Project 1", "Sample Project 2"];
+
+  /* =========================
      RENDER
      ========================= */
-
   return (
     <div className="welcome-wrapper">
-      <Header
-        onSearchClick={handleSearchClick}
-        onInviteClick={handleInviteClick}
-        onJoinClick={handleJoinClick}
-      />
+      <Header onInviteClick={handleInviteClick} onJoinClick={handleJoinClick} />
 
       <div className="body-layout">
         <Sidebar />
@@ -222,25 +189,31 @@ function WelcomePage() {
             <div className="start-section">
               <h3 style={{ color: "#74ff4e" }}>Start</h3>
 
-              <button className="action-btn" onClick={handleNewFileClick}>
-                <img src={newFileIcon} alt="" className="action-icon" />
-                New File
+              <button className="action-btn" onClick={handleOpenLocalProject}>
+                <img src={openFolderIcon} className="action-icon" />
+                Open Local Project
               </button>
 
-              <button className="action-btn" onClick={handleOpenFile}>
-                <img src={openFileIcon} alt="" className="action-icon" />
-                Open File
+              <button
+                className="action-btn"
+                onClick={handleCreateCollaborativeProject}
+              >
+                <img src={newFileIcon} className="action-icon" />
+                Create Collaborative Project
               </button>
 
-              <button className="action-btn" onClick={handleOpenFolder}>
-                <img src={openFolderIcon} alt="" className="action-icon" />
-                Open Folder
+              <button
+                className="action-btn"
+                onClick={handleOpenCollaborativeProject}
+              >
+                <img src={openFileIcon} className="action-icon" />
+                Open Collaborative Project
               </button>
             </div>
           </div>
 
           <div className="welcome-logo-center">
-            <img src={logo} alt="Logo" className="translucent-logo" />
+            <img src={logo} className="translucent-logo" />
           </div>
 
           <div className="welcome-right" />
@@ -249,25 +222,89 @@ function WelcomePage() {
 
       <Footer />
 
-      {isModalOpen && (
-        <NewFileModal
-          onCreate={handleCreateNewFile}
-          onClose={() => setIsModalOpen(false)}
-        />
-      )}
-
+      {/* Invite / Join */}
       <InviteJoinModal
         isOpen={isInviteOpen}
         mode="invite"
         roomId={hostRoomId}
         onClose={() => setIsInviteOpen(false)}
       />
-
       <InviteJoinModal
         isOpen={isJoinOpen}
         mode="join"
         onClose={() => setIsJoinOpen(false)}
       />
+
+      {/* ===== Create Collaborative Project Modal ===== */}
+      {showCreateProjectModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowCreateProjectModal(false)}
+        >
+          <div
+            className="modal-container"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Create Collaborative Project</h3>
+
+            <input
+              type="text"
+              placeholder="Project name"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              autoFocus
+            />
+
+            <div className="modal-actions">
+              <button onClick={handleConfirmCreateProject}>Create</button>
+              <button
+                onClick={() => setShowCreateProjectModal(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Open Collaborative Project Modal (UI only) ===== */}
+      {showOpenProjectModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowOpenProjectModal(false)}
+        >
+          <div
+            className="modal-container"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Open Collaborative Project</h3>
+
+            <div className="project-list">
+              {mockProjects.map((project) => (
+                <div
+                  key={project}
+                  className={`project-list-item ${
+                    selectedProjectId === project ? "selected" : ""
+                  }`}
+                  onClick={() => setSelectedProjectId(project)}
+                  onDoubleClick={() => {
+                    setShowOpenProjectModal(false);
+                    navigate("/editor");
+                  }}
+                >
+                  {project}
+                </div>
+              ))}
+            </div>
+
+            <div className="modal-actions">
+              <button onClick={() => setShowOpenProjectModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

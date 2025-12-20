@@ -1,5 +1,11 @@
 // src/context/ProjectContext.jsx
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useRoomSync } from "./RoomSyncContext";
 
 const API_BASE =
@@ -19,13 +25,25 @@ export function ProjectProvider({ children }) {
   const { roomId } = useRoomSync();
 
   /* =========================
-     STATE
+     PROJECT STATE
      ========================= */
 
-  const [projectId, setProjectId] = useState(null);
-  const [projectName, setProjectName] = useState("");
-  const [files, setFiles] = useState([]); // [{ path, content, ... }]
+  const [project, setProject] = useState({
+    id: null,
+    name: "",
+    tree: [], // folder/file tree (future backend-driven)
+  });
+
+  /* =========================
+     FILE STATE
+     ========================= */
+
+  const [filesByPath, setFilesByPath] = useState({});
   const [activeFilePath, setActiveFilePath] = useState(null);
+
+  /* =========================
+     UI STATE
+     ========================= */
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -41,18 +59,73 @@ export function ProjectProvider({ children }) {
     };
   };
 
+  function normalizeFiles(files = []) {
+    const map = {};
+    files.forEach((f) => {
+      map[f.path] = f;
+    });
+    return map;
+  }
+
   /* =========================
-     LOAD PROJECT
+     CREATE PROJECT (DB)
      ========================= */
 
-  async function loadProject(pid) {
-    if (!pid) return;
+  async function createProject(name) {
+    if (!name) return null;
 
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/projects/${pid}`, {
+      const res = await fetch(`${API_BASE}/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ name }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create project");
+      }
+
+      const p = data.project;
+
+      // 🔑 Initialize project state
+      setProject({
+        id: p._id,
+        name: p.name,
+        tree: [], // backend tree comes later
+      });
+
+      setFilesByPath(normalizeFiles(p.files || []));
+      setActiveFilePath(null);
+
+      return p;
+    } catch (err) {
+      console.error("createProject error:", err);
+      setError(err.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /* =========================
+     LOAD PROJECT (DB)
+     ========================= */
+
+  async function loadProject(projectId) {
+    if (!projectId) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`${API_BASE}/projects/${projectId}`, {
         headers: {
           ...getAuthHeader(),
         },
@@ -61,16 +134,16 @@ export function ProjectProvider({ children }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load project");
 
-      setProjectId(data.project._id);
-      setProjectName(data.project.name);
-      setFiles(data.project.files || []);
+      const { project: p } = data;
 
-      // auto-open first file if exists
-      if (data.project.files?.length > 0) {
-        setActiveFilePath(data.project.files[0].path);
-      } else {
-        setActiveFilePath(null);
-      }
+      setProject({
+        id: p._id,
+        name: p.name,
+        tree: p.tree || [],
+      });
+
+      setFilesByPath(normalizeFiles(p.files || []));
+      setActiveFilePath(p.files?.[0]?.path || null);
     } catch (err) {
       console.error("loadProject error:", err);
       setError(err.message);
@@ -80,35 +153,33 @@ export function ProjectProvider({ children }) {
   }
 
   /* =========================
-     FILE OPERATIONS (LOCAL STATE ONLY)
+     FILE ACTIONS (UI)
      ========================= */
 
   function openFile(path) {
     setActiveFilePath(path);
   }
 
-  function getActiveFile() {
-    return files.find((f) => f.path === activeFilePath) || null;
-  }
-
-  function updateFileContent(path, newContent) {
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.path === path ? { ...f, content: newContent } : f
-      )
-    );
+  function updateFileContent(path, content) {
+    setFilesByPath((prev) => ({
+      ...prev,
+      [path]: {
+        ...prev[path],
+        content,
+      },
+    }));
   }
 
   /* =========================
-     CREATE FILE (DB)
+     FILE ACTIONS (DB)
      ========================= */
 
   async function createFile(path) {
-    if (!projectId) return;
+    if (!project.id) return;
 
     try {
       const res = await fetch(
-        `${API_BASE}/projects/${projectId}/files`,
+        `${API_BASE}/projects/${project.id}/files`,
         {
           method: "POST",
           headers: {
@@ -122,26 +193,22 @@ export function ProjectProvider({ children }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setFiles(data.files);
+      setFilesByPath(normalizeFiles(data.files));
       setActiveFilePath(path);
     } catch (err) {
       console.error("createFile error:", err);
     }
   }
 
-  /* =========================
-     SAVE FILE (DB)
-     ========================= */
-
   async function saveFile(path) {
-    if (!projectId) return;
+    if (!project.id) return;
 
-    const file = files.find((f) => f.path === path);
+    const file = filesByPath[path];
     if (!file) return;
 
     try {
       await fetch(
-        `${API_BASE}/projects/${projectId}/files/content`,
+        `${API_BASE}/projects/${project.id}/files/content`,
         {
           method: "PUT",
           headers: {
@@ -160,15 +227,24 @@ export function ProjectProvider({ children }) {
   }
 
   /* =========================
-     RESET (LEAVE ROOM)
+     DERIVED STATE
+     ========================= */
+
+  const activeFile = useMemo(() => {
+    return filesByPath[activeFilePath] || null;
+  }, [filesByPath, activeFilePath]);
+
+  /* =========================
+     RESET ON ROOM LEAVE
      ========================= */
 
   useEffect(() => {
     if (!roomId) {
-      setProjectId(null);
-      setProjectName("");
-      setFiles([]);
+      setProject({ id: null, name: "", tree: [] });
+      setFilesByPath({});
       setActiveFilePath(null);
+      setLoading(false);
+      setError(null);
     }
   }, [roomId]);
 
@@ -179,16 +255,20 @@ export function ProjectProvider({ children }) {
   return (
     <ProjectContext.Provider
       value={{
-        // state
-        projectId,
-        projectName,
-        files,
+        // project
+        project,
+
+        // files
+        filesByPath,
         activeFilePath,
-        activeFile: getActiveFile(),
+        activeFile,
+
+        // ui
         loading,
         error,
 
         // actions
+        createProject,
         loadProject,
         openFile,
         updateFileContent,
