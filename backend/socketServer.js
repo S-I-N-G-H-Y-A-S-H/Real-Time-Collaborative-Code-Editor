@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const { Server } = require("socket.io");
 
 const Room = require("./models/Room");
-const User = require("./models/User"); // ✅ ADD USER MODEL
+const User = require("./models/User");
 const TokenManager = require("./utils/TokenManager");
 
 const PORT = process.env.PORT_SOCKET || 5001;
@@ -28,13 +28,22 @@ const io = new Server(httpServer, {
    HELPERS
    ========================= */
 
+function verifyTokenSafe(token) {
+  try {
+    if (!token) return null;
+    return TokenManager.verifyToken(token);
+  } catch {
+    return null;
+  }
+}
+
 async function broadcastParticipants(roomId) {
   const room = await Room.findById(roomId).lean();
   if (!room) return;
 
   const participants = (room.participants || []).map((p) => ({
-    userId: p.userId,
-    username: p.username, // ✅ now always real
+    userId: String(p.userId),
+    username: p.username,
     online: !!p.online,
     socketId: p.socketId || null,
     isHost: String(p.userId) === String(room.hostUserId),
@@ -43,18 +52,9 @@ async function broadcastParticipants(roomId) {
 
   io.to(String(roomId)).emit("participants-updated", {
     roomId: String(room._id),
-    hostUserId: room.hostUserId,
+    hostUserId: String(room.hostUserId),
     participants,
   });
-}
-
-function verifyTokenSafe(token) {
-  try {
-    if (!token) return null;
-    return TokenManager.verifyToken(token);
-  } catch {
-    return null;
-  }
 }
 
 /* =========================
@@ -81,7 +81,7 @@ io.on("connection", (socket) => {
 
       const [room, user] = await Promise.all([
         Room.findById(roomId),
-        User.findById(userId).lean(), // ✅ FETCH USER
+        User.findById(userId).lean(),
       ]);
 
       if (!room) {
@@ -98,7 +98,7 @@ io.on("connection", (socket) => {
       const username =
         user.username || user.name || user.email || "User";
 
-      // Ensure single active socket per user
+      // 🔒 Ensure single active socket per user
       room.participants.forEach((p) => {
         if (p.userId === uid && p.socketId && p.socketId !== socket.id) {
           p.socketId = null;
@@ -106,12 +106,14 @@ io.on("connection", (socket) => {
         }
       });
 
-      let participant = room.participants.find((p) => p.userId === uid);
+      let participant = room.participants.find(
+        (p) => p.userId === uid
+      );
 
       if (!participant) {
         participant = {
           userId: uid,
-          username, // ✅ REAL NAME
+          username,
           socketId: socket.id,
           online: true,
           lastActive: new Date(),
@@ -121,10 +123,10 @@ io.on("connection", (socket) => {
         participant.socketId = socket.id;
         participant.online = true;
         participant.lastActive = new Date();
-        participant.username = username; // ✅ ALWAYS UPDATE
+        participant.username = username; // always refresh from DB
       }
 
-      // Default view
+      // Default view (important for late joiners)
       if (!room.currentView) {
         room.currentView = "welcome";
       }
@@ -138,21 +140,25 @@ io.on("connection", (socket) => {
 
       socket.emit("join-success", {
         roomId: String(room._id),
-        hostUserId: room.hostUserId,
+        hostUserId: String(room.hostUserId),
       });
 
       await broadcastParticipants(room._id);
 
-      // Sync current view for late joiners
+      // 🔄 Sync current view for late joiners
       socket.emit("view-synced", {
         roomId: String(room._id),
         page: room.currentView,
       });
 
-      console.log(`✅ user ${username} (${uid}) joined room ${room._id}`);
+      console.log(
+        `✅ user ${username} (${uid}) joined room ${room._id}`
+      );
     } catch (err) {
       console.error("auth-join error:", err);
-      socket.emit("join-error", { message: "Server error during join" });
+      socket.emit("join-error", {
+        message: "Server error during join",
+      });
     }
   });
 
@@ -165,6 +171,7 @@ io.on("connection", (socket) => {
       const room = await Room.findById(roomId);
       if (!room) return;
 
+      // 🔐 Only host can sync view
       if (String(room.hostUserId) !== String(userId)) return;
 
       room.currentView = page;
@@ -229,6 +236,7 @@ async function connectWithRetry(uri, maxRetries = 20) {
     try {
       await mongoose.connect(uri);
       console.log("✅ SocketServer connected to MongoDB");
+
       httpServer.listen(PORT, () => {
         console.log(`🚀 SocketServer listening on ${PORT}`);
       });

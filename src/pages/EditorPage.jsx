@@ -1,9 +1,10 @@
 // src/pages/EditorPage.jsx
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 
 import { useFile } from "../context/FileContext";
+import { useProject } from "../context/ProjectContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useEditor } from "../context/EditorContext";
 import { useRoomSync } from "../context/RoomSyncContext";
@@ -21,17 +22,48 @@ import "../styles/EditorPage.css";
 
 function EditorPage() {
   const navigate = useNavigate();
-  const location = useLocation();
+
+  /* =========================
+     MODE DETECTION
+     ========================= */
+
+  const { roomId, currentView } = useRoomSync();
+  const isCollaborative = !!roomId;
 
   /* =========================
      CONTEXTS
      ========================= */
 
-  const { currentFile, updateFileContent, saveFile } = useFile();
+  // Local (single-user)
+  const fileCtx = useFile();
+
+  // Collaborative
+  const projectCtx = useProject();
+
+  // Shared
   const { isVisible } = useSidebar();
   const { setEditor } = useEditor();
 
-  const { roomId, currentView } = useRoomSync();
+  /* =========================
+     NORMALIZED FILE API
+     ========================= */
+
+  const currentFile = isCollaborative
+    ? projectCtx.activeFile &&
+      projectCtx.activeFilePath && {
+        fileName: projectCtx.activeFilePath.split("/").pop(),
+        filePath: projectCtx.activeFilePath,
+        fileContent: projectCtx.activeFile.content,
+      }
+    : fileCtx.currentFile;
+
+  const updateFileContent = isCollaborative
+    ? projectCtx.updateFileContent
+    : fileCtx.updateFileContent;
+
+  const saveFile = isCollaborative
+    ? () => projectCtx.saveFile(projectCtx.activeFilePath)
+    : fileCtx.saveFile;
 
   /* =========================
      LOCAL STATE
@@ -45,17 +77,16 @@ function EditorPage() {
   const terminalResetRef = useRef(null);
 
   /* =========================
-     VIEW GUARD (IMPORTANT)
+     VIEW GUARD (COLLAB ONLY)
      ========================= */
 
-  // If server says editor is NOT active, force back to welcome
   useEffect(() => {
-    if (!roomId) return;
+    if (!isCollaborative) return;
 
     if (currentView !== "editor") {
       navigate("/welcome", { replace: true });
     }
-  }, [currentView, roomId, navigate]);
+  }, [isCollaborative, currentView, navigate]);
 
   /* =========================
      FILE → EDITOR SYNC
@@ -152,11 +183,27 @@ function EditorPage() {
   const handleEditorChange = useCallback(
     (newCode) => {
       setCode(newCode ?? "");
-      if (currentFile) {
-        updateFileContent(currentFile.fileHandle, newCode ?? "");
+
+      if (!currentFile) return;
+
+      if (isCollaborative) {
+        projectCtx.updateFileContent(
+          projectCtx.activeFilePath,
+          newCode ?? ""
+        );
+      } else {
+        fileCtx.updateFileContent(
+          currentFile.fileHandle,
+          newCode ?? ""
+        );
       }
     },
-    [currentFile, updateFileContent]
+    [
+      currentFile,
+      isCollaborative,
+      projectCtx,
+      fileCtx,
+    ]
   );
 
   const monacoLanguage = currentFile?.fileName
@@ -164,12 +211,15 @@ function EditorPage() {
     : "plaintext";
 
   /* =========================
-     SEARCH / COMMAND PALETTE
+     SEARCH
      ========================= */
 
   const handleSearchClick = () => {
     editorRef.current?.focus();
-    editorRef.current?.trigger("source", "editor.action.quickCommand");
+    editorRef.current?.trigger(
+      "source",
+      "editor.action.quickCommand"
+    );
   };
 
   /* =========================
@@ -223,8 +273,12 @@ function EditorPage() {
 
                 {showTerminal && (
                   <TerminalComponent
-                    refExecute={(fn) => (terminalExecuteRef.current = fn)}
-                    refReset={(fn) => (terminalResetRef.current = fn)}
+                    refExecute={(fn) =>
+                      (terminalExecuteRef.current = fn)
+                    }
+                    refReset={(fn) =>
+                      (terminalResetRef.current = fn)
+                    }
                   />
                 )}
               </>

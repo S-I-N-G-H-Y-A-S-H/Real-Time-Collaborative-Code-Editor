@@ -5,6 +5,7 @@ import { FileProvider } from "./context/FileContext";
 import { SidebarProvider } from "./context/SidebarContext";
 import { EditorProvider } from "./context/EditorContext";
 import { RoomSyncProvider } from "./context/RoomSyncContext";
+import { ProjectProvider } from "./context/ProjectContext"; // ✅ ADD THIS
 
 import WelcomePage from "./pages/WelcomePage";
 import EditorPage from "./pages/EditorPage";
@@ -13,7 +14,6 @@ import SignupPage from "./pages/SignupPage";
 
 /**
  * Simple auth guard
- * (you already use token-based auth)
  */
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -29,35 +29,40 @@ function App() {
       <FileProvider>
         <SidebarProvider>
           <EditorProvider>
-            {/* 🔑 REQUIRED FOR ROOM + SOCKET SYNC */}
             <RoomSyncProvider>
-              <Routes>
-                {/* Auth */}
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/signup" element={<SignupPage />} />
+              {/* ✅ ALWAYS MOUNT PROJECT PROVIDER */}
+              <ProjectProvider>
+                <Routes>
+                  {/* Auth */}
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/signup" element={<SignupPage />} />
 
-                {/* App */}
-                <Route
-                  path="/welcome"
-                  element={
-                    <ProtectedRoute>
-                      <WelcomePage />
-                    </ProtectedRoute>
-                  }
-                />
+                  {/* App */}
+                  <Route
+                    path="/welcome"
+                    element={
+                      <ProtectedRoute>
+                        <WelcomePage />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/editor"
-                  element={
-                    <ProtectedRoute>
-                      <EditorPage />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/editor"
+                    element={
+                      <ProtectedRoute>
+                        <EditorPage />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                {/* Default */}
-                <Route path="*" element={<Navigate to="/welcome" replace />} />
-              </Routes>
+                  {/* Default */}
+                  <Route
+                    path="*"
+                    element={<Navigate to="/welcome" replace />}
+                  />
+                </Routes>
+              </ProjectProvider>
             </RoomSyncProvider>
           </EditorProvider>
         </SidebarProvider>

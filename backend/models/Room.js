@@ -18,8 +18,19 @@ const RoomSchema = new mongoose.Schema({
   inviteCode: { type: String, index: true, sparse: true },
   inviteExpiresAt: { type: Date, default: null },
 
-  // 🔑 SESSION STATE
+  /* =========================
+     COLLABORATION STATE
+     ========================= */
+
+  // Whether the collaborative session has started
   sessionStarted: { type: Boolean, default: false },
+
+  // 🔑 Active collaborative project (NULL until created/opened)
+  activeProjectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Project",
+    default: null,
+  },
 
   participants: { type: [ParticipantSchema], default: [] },
 
