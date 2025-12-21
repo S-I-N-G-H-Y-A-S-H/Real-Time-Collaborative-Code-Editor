@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useFile } from "../context/FileContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useRoomSync } from "../context/RoomSyncContext";
-import { useProject } from "../context/ProjectContext"; // ✅ NEW
+import { useProject } from "../context/ProjectContext";
 
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
@@ -33,7 +33,7 @@ function WelcomePage() {
   const { isVisible } = useSidebar();
   const { roomId, isHost, currentView, joinRoom, syncViewAsHost } =
     useRoomSync();
-  const { createProject } = useProject(); // ✅ NEW
+  const { createProject } = useProject();
 
   /* =========================
      LOCAL STATE
@@ -103,11 +103,11 @@ function WelcomePage() {
     setShowCreateProjectModal(true);
   };
 
-  // ✅ WIRED TO PROJECT CONTEXT
+  // 🔑 FIXED: roomId passed to createProject
   const handleConfirmCreateProject = async () => {
     if (!projectName.trim()) return;
 
-    const created = await createProject(projectName.trim());
+    const created = await createProject(projectName.trim(), roomId);
     if (!created) return;
 
     setShowCreateProjectModal(false);
@@ -257,9 +257,7 @@ function WelcomePage() {
 
             <div className="modal-actions">
               <button onClick={handleConfirmCreateProject}>Create</button>
-              <button
-                onClick={() => setShowCreateProjectModal(false)}
-              >
+              <button onClick={() => setShowCreateProjectModal(false)}>
                 Cancel
               </button>
             </div>

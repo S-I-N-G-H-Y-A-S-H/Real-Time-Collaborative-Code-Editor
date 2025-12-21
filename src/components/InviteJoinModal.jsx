@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useRoomSync } from "../context/RoomSyncContext";
 import "../styles/InviteJoinModal.css";
 
@@ -10,6 +11,7 @@ export default function InviteJoinModal({
   roomId: initialRoomId = null,
   onClose = () => {},
 }) {
+  const navigate = useNavigate();
   const { joinRoom } = useRoomSync();
 
   const [roomId, setRoomId] = useState(initialRoomId);
@@ -19,7 +21,7 @@ export default function InviteJoinModal({
   const [error, setError] = useState("");
 
   /* ===============================
-     INVITE MODE – fetch code
+     INVITE MODE – host
      =============================== */
   useEffect(() => {
     if (!isOpen || mode !== "invite") return;
@@ -31,7 +33,6 @@ export default function InviteJoinModal({
 
         const token = localStorage.getItem("token");
 
-        // Create room if missing
         let rid = roomId;
         if (!rid) {
           const res = await fetch(`${API_BASE}/rooms`, {
@@ -41,13 +42,14 @@ export default function InviteJoinModal({
               Authorization: `Bearer ${token}`,
             },
           });
+
           const data = await res.json();
           if (!res.ok) throw new Error(data.error);
+
           rid = data.roomId;
           setRoomId(rid);
         }
 
-        // Get invite code
         const inviteRes = await fetch(`${API_BASE}/rooms/${rid}/invite`, {
           method: "POST",
           headers: {
@@ -61,8 +63,8 @@ export default function InviteJoinModal({
 
         setInviteCode(inviteData.inviteCode);
 
-        // Join room as HOST (context-controlled)
-        joinRoom(rid, true);
+        // HOST joins (no project yet)
+        joinRoom(rid, true, null, "welcome");
       } catch (err) {
         setError(err.message || "Failed to create invite");
       } finally {
@@ -74,7 +76,7 @@ export default function InviteJoinModal({
   }, [isOpen, mode]);
 
   /* ===============================
-     JOIN MODE – join by code
+     JOIN MODE – guest
      =============================== */
   async function handleJoinWithCode() {
     try {
@@ -95,8 +97,21 @@ export default function InviteJoinModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      joinRoom(data.room.roomId, false);
+      const { room } = data;
+
+      // 🔑 FIX — pass EVERYTHING
+      joinRoom(
+        room.roomId,
+        false,                     // guest
+        room.activeProjectId,      // 🔑 project id
+        room.currentView || "welcome"
+      );
+
       onClose();
+
+      if (room.currentView === "editor") {
+        navigate("/editor", { replace: true });
+      }
     } catch (err) {
       setError(err.message || "Failed to join room");
     } finally {

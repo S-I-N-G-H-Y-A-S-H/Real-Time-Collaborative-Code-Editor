@@ -10,7 +10,6 @@ const authMiddleware = require("../middleware/authMiddleware");
    HELPERS
    ========================= */
 
-// generate a short alphanumeric invite code
 function generateInviteCode(len = 7) {
   return crypto
     .randomBytes(Math.ceil(len * 0.75))
@@ -36,7 +35,7 @@ router.post("/", authMiddleware, async (req, res) => {
         {
           userId: req.user.id,
           username: req.user.username,
-          online: false, // socket will mark online
+          online: false,
         },
       ],
     });
@@ -61,25 +60,15 @@ router.post("/", authMiddleware, async (req, res) => {
 
 router.post("/:id/invite", authMiddleware, async (req, res) => {
   try {
-    const roomId = req.params.id;
-    const { regenerate = false, inviteTTL } = req.body || {};
-
-    const room = await Room.findById(roomId);
+    const room = await Room.findById(req.params.id);
     if (!room) return res.status(404).json({ error: "Room not found" });
 
     if (room.hostUserId !== req.user.id) {
       return res.status(403).json({ error: "Only host can generate invite" });
     }
 
-    if (regenerate || !room.inviteCode) {
+    if (!room.inviteCode) {
       room.inviteCode = generateInviteCode();
-
-      if (inviteTTL && Number(inviteTTL) > 0) {
-        room.inviteExpiresAt = new Date(Date.now() + inviteTTL * 1000);
-      } else {
-        room.inviteExpiresAt = null;
-      }
-
       await room.save();
     }
 
@@ -107,8 +96,7 @@ router.post("/join", authMiddleware, async (req, res) => {
   try {
     const { inviteCode, roomId } = req.body;
 
-    let room = null;
-
+    let room;
     if (inviteCode) {
       room = await Room.findOne({ inviteCode });
     } else if (roomId) {
@@ -145,12 +133,15 @@ router.post("/join", authMiddleware, async (req, res) => {
       await room.save();
     }
 
+    /* 🔑 CRITICAL FIX: SEND VIEW + PROJECT */
     res.json({
       success: true,
       room: {
         roomId: room._id,
         name: room.name,
         hostUserId: room.hostUserId,
+        activeProjectId: room.activeProjectId || null,
+        currentView: room.currentView || "welcome",
       },
     });
   } catch (err) {

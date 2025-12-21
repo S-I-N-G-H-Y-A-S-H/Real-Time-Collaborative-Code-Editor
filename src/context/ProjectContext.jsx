@@ -22,7 +22,7 @@ const ProjectContext = createContext(null);
    ========================= */
 
 export function ProjectProvider({ children }) {
-  const { roomId } = useRoomSync();
+  const { roomId, activeProjectId } = useRoomSync();
 
   /* =========================
      PROJECT STATE
@@ -31,7 +31,7 @@ export function ProjectProvider({ children }) {
   const [project, setProject] = useState({
     id: null,
     name: "",
-    tree: [], // folder/file tree (future backend-driven)
+    tree: [],
   });
 
   /* =========================
@@ -84,7 +84,10 @@ export function ProjectProvider({ children }) {
           "Content-Type": "application/json",
           ...getAuthHeader(),
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({
+          name,
+          roomId: roomId || null, // 🔑 FIX: ALWAYS SEND ROOM ID
+        }),
       });
 
       const data = await res.json();
@@ -94,11 +97,10 @@ export function ProjectProvider({ children }) {
 
       const p = data.project;
 
-      // 🔑 Initialize project state
       setProject({
         id: p._id,
         name: p.name,
-        tree: [], // backend tree comes later
+        tree: [],
       });
 
       setFilesByPath(normalizeFiles(p.files || []));
@@ -151,6 +153,20 @@ export function ProjectProvider({ children }) {
       setLoading(false);
     }
   }
+
+  /* =========================
+     🔑 AUTO LOAD PROJECT FOR GUESTS
+     ========================= */
+
+  useEffect(() => {
+    if (
+      roomId &&
+      activeProjectId &&
+      project.id !== activeProjectId
+    ) {
+      loadProject(activeProjectId);
+    }
+  }, [roomId, activeProjectId]);
 
   /* =========================
      FILE ACTIONS (UI)
@@ -255,19 +271,13 @@ export function ProjectProvider({ children }) {
   return (
     <ProjectContext.Provider
       value={{
-        // project
         project,
-
-        // files
         filesByPath,
         activeFilePath,
         activeFile,
-
-        // ui
         loading,
         error,
 
-        // actions
         createProject,
         loadProject,
         openFile,

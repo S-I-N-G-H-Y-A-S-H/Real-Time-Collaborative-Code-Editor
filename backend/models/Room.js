@@ -32,6 +32,13 @@ const RoomSchema = new mongoose.Schema({
     default: null,
   },
 
+  // 🔑 CURRENT VIEW (welcome | editor)
+  currentView: {
+    type: String,
+    enum: ["welcome", "editor"],
+    default: "welcome",
+  },
+
   participants: { type: [ParticipantSchema], default: [] },
 
   createdAt: { type: Date, default: Date.now },

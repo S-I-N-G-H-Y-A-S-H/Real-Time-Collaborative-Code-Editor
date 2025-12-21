@@ -11,24 +11,25 @@ export function RoomSyncProvider({ children }) {
   // Shared app view: "welcome" | "editor"
   const [currentView, setCurrentView] = useState("welcome");
 
-  // ✅ REAL PARTICIPANTS STATE
+  // Participants
   const [participants, setParticipants] = useState([]);
+
+  // 🔑 Active collaborative project
+  const [activeProjectId, setActiveProjectId] = useState(null);
 
   /* =========================
      SOCKET LISTENERS
      ========================= */
 
   useEffect(() => {
-    // View sync
     socketService.onViewSynced((payload) => {
       if (payload?.page) {
         setCurrentView(payload.page);
       }
     });
 
-    // Participants sync
     socketService.onParticipantsUpdate((data) => {
-      if (data?.participants && Array.isArray(data.participants)) {
+      if (Array.isArray(data?.participants)) {
         setParticipants(data.participants);
       }
     });
@@ -43,23 +44,36 @@ export function RoomSyncProvider({ children }) {
      API
      ========================= */
 
-  const joinRoom = (rid, host = false) => {
+  /**
+   * Join a room
+   * Used by BOTH host and guest
+   */
+  const joinRoom = (
+    rid,
+    host = false,
+    projectId = null,
+    view = "welcome"
+  ) => {
     socketService.joinRoom({ roomId: rid });
+
     setRoomId(rid);
     setIsHost(host);
+    setActiveProjectId(projectId);
+    setCurrentView(view); // 🔑 FIX
   };
 
   const leaveRoom = () => {
     socketService.leaveRoom();
+
     setRoomId(null);
     setIsHost(false);
     setCurrentView("welcome");
-    setParticipants([]); // clear participants on leave
+    setParticipants([]);
+    setActiveProjectId(null);
   };
 
   /**
    * Host reports a view change
-   * Guests just listen
    */
   const syncViewAsHost = (page) => {
     if (!roomId || !isHost) return;
@@ -78,7 +92,8 @@ export function RoomSyncProvider({ children }) {
         roomId,
         isHost,
         currentView,
-        participants, // ✅ EXPOSED HERE
+        participants,
+        activeProjectId,
         inRoom: !!roomId,
 
         joinRoom,
@@ -90,10 +105,6 @@ export function RoomSyncProvider({ children }) {
     </RoomSyncContext.Provider>
   );
 }
-
-/* =========================
-   Hook
-   ========================= */
 
 export function useRoomSync() {
   const ctx = useContext(RoomSyncContext);
