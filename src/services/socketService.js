@@ -11,6 +11,7 @@ class SocketService {
 
     this.participantsHandler = null;
     this.viewHandler = null;
+    this.projectActivatedHandler = null; // ✅ NEW
   }
 
   /* =========================
@@ -82,13 +83,9 @@ class SocketService {
   }
 
   /* =========================
-     VIEW SYNC (NEW)
+     VIEW SYNC
      ========================= */
 
-  /**
-   * Host tells server which page is active
-   * page = "welcome" | "editor"
-   */
   syncView({ roomId, page }) {
     if (!this.socket || !roomId || !page) return;
 
@@ -98,9 +95,6 @@ class SocketService {
     });
   }
 
-  /**
-   * Everyone listens for view changes
-   */
   onViewSynced(callback) {
     if (!callback) return;
 
@@ -122,6 +116,30 @@ class SocketService {
   }
 
   /* =========================
+     PROJECT ACTIVATION (NEW)
+     ========================= */
+
+  onProjectActivated(callback) {
+    if (!callback) return;
+
+    this.connect();
+
+    if (this.projectActivatedHandler) {
+      this.socket.off("project:activated", this.projectActivatedHandler);
+    }
+
+    this.projectActivatedHandler = callback;
+    this.socket.on("project:activated", callback);
+  }
+
+  offProjectActivated() {
+    if (!this.socket || !this.projectActivatedHandler) return;
+
+    this.socket.off("project:activated", this.projectActivatedHandler);
+    this.projectActivatedHandler = null;
+  }
+
+  /* =========================
      CLEANUP
      ========================= */
 
@@ -135,8 +153,8 @@ class SocketService {
     this.currentRoomId = null;
     this.participantsHandler = null;
     this.viewHandler = null;
+    this.projectActivatedHandler = null;
   }
 }
 
 export default new SocketService();
-  

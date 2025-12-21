@@ -15,24 +15,43 @@ exports.createProject = async (req, res) => {
 
     const ownerUserId = req.user.id || req.user._id;
 
-    // 1️⃣ Create project
+    /* =========================
+       1️⃣ CREATE PROJECT
+       ========================= */
     const project = await Project.create({
       name,
       ownerUserId,
       files: [],
     });
 
-    // 2️⃣ Link project to room
+    /* =========================
+       2️⃣ LINK PROJECT TO ROOM
+       ========================= */
     if (roomId) {
       const room = await Room.findById(roomId);
+
       if (room) {
         room.activeProjectId = project._id;
         room.sessionStarted = true;
         await room.save();
+
+        /* =========================
+           🔔 NOTIFY ALL ROOM MEMBERS
+           (CRITICAL FOR EARLY JOIN)
+           ========================= */
+        const io = req.app.get("io");
+
+        if (io) {
+          io.to(room._id.toString()).emit("project:activated", {
+            projectId: project._id,
+          });
+        }
       }
     }
 
-    // 3️⃣ Respond
+    /* =========================
+       3️⃣ RESPONSE
+       ========================= */
     res.status(201).json({
       project: {
         _id: project._id,
@@ -47,7 +66,7 @@ exports.createProject = async (req, res) => {
 };
 
 /**
- * ✅ GET /projects/:id
+ * GET /projects/:id
  * Load project for guests
  */
 exports.getProjectById = async (req, res) => {

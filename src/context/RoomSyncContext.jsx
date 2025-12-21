@@ -2,6 +2,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import socketService from "../services/socketService";
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
 const RoomSyncContext = createContext(null);
 
 export function RoomSyncProvider({ children }) {
@@ -34,20 +37,61 @@ export function RoomSyncProvider({ children }) {
       }
     });
 
+    // 🔑 Project activated (host created project)
+    socketService.onProjectActivated((payload) => {
+      if (!payload?.projectId) return;
+
+      setActiveProjectId(payload.projectId);
+      setCurrentView("editor");
+    });
+
     return () => {
       socketService.offViewSynced();
       socketService.offParticipantsUpdate();
+      socketService.offProjectActivated();
     };
   }, []);
+
+  /* =========================
+     🔁 FALLBACK FIX (EARLY JOIN)
+     ========================= */
+
+  useEffect(() => {
+    // If user is already in editor but missed project activation
+    if (
+      roomId &&
+      currentView === "editor" &&
+      !activeProjectId
+    ) {
+      (async () => {
+        try {
+          const token = localStorage.getItem("token");
+
+          const res = await fetch(`${API_BASE}/rooms/join`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ roomId }),
+          });
+
+          const data = await res.json();
+
+          if (data?.room?.activeProjectId) {
+            setActiveProjectId(data.room.activeProjectId);
+          }
+        } catch (err) {
+          console.error("Room fallback fetch failed:", err);
+        }
+      })();
+    }
+  }, [roomId, currentView, activeProjectId]);
 
   /* =========================
      API
      ========================= */
 
-  /**
-   * Join a room
-   * Used by BOTH host and guest
-   */
   const joinRoom = (
     rid,
     host = false,
@@ -59,7 +103,7 @@ export function RoomSyncProvider({ children }) {
     setRoomId(rid);
     setIsHost(host);
     setActiveProjectId(projectId);
-    setCurrentView(view); // 🔑 FIX
+    setCurrentView(view);
   };
 
   const leaveRoom = () => {
@@ -72,17 +116,10 @@ export function RoomSyncProvider({ children }) {
     setActiveProjectId(null);
   };
 
-  /**
-   * Host reports a view change
-   */
   const syncViewAsHost = (page) => {
     if (!roomId || !isHost) return;
 
-    socketService.syncView({
-      roomId,
-      page,
-    });
-
+    socketService.syncView({ roomId, page });
     setCurrentView(page);
   };
 
