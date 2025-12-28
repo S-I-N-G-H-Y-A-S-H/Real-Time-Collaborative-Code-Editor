@@ -15,43 +15,30 @@ exports.createProject = async (req, res) => {
 
     const ownerUserId = req.user.id || req.user._id;
 
-    /* =========================
-       1️⃣ CREATE PROJECT
-       ========================= */
     const project = await Project.create({
       name,
       ownerUserId,
       files: [],
     });
 
-    /* =========================
-       2️⃣ LINK PROJECT TO ROOM
-       ========================= */
     if (roomId) {
       const room = await Room.findById(roomId);
 
       if (room) {
         room.activeProjectId = project._id;
         room.sessionStarted = true;
+        room.currentView = "editor";
         await room.save();
 
-        /* =========================
-           🔔 NOTIFY ALL ROOM MEMBERS
-           (CRITICAL FOR EARLY JOIN)
-           ========================= */
         const io = req.app.get("io");
-
         if (io) {
           io.to(room._id.toString()).emit("project:activated", {
-            projectId: project._id,
+            projectId: project._id.toString(),
           });
         }
       }
     }
 
-    /* =========================
-       3️⃣ RESPONSE
-       ========================= */
     res.status(201).json({
       project: {
         _id: project._id,
@@ -66,15 +53,40 @@ exports.createProject = async (req, res) => {
 };
 
 /**
+ * GET /projects/my
+ * List projects owned by logged-in user
+ */
+exports.getMyProjects = async (req, res) => {
+  try {
+    const ownerUserId = req.user.id || req.user._id;
+
+    const projects = await Project.find({ ownerUserId })
+      .sort({ updatedAt: -1 })
+      .select("_id name updatedAt");
+
+    res.json({
+      success: true,
+      projects: projects.map((p) => ({
+        id: p._id,
+        name: p.name,
+        updatedAt: p.updatedAt,
+      })),
+    });
+  } catch (err) {
+    console.error("Get my projects error:", err);
+    res.status(500).json({ error: "Failed to load projects" });
+  }
+};
+
+/**
  * GET /projects/:id
- * Load project for guests
+ * Load project by ID
  */
 exports.getProjectById = async (req, res) => {
   try {
     const projectId = req.params.id;
 
     const project = await Project.findById(projectId);
-
     if (!project) {
       return res.status(404).json({ error: "Project not found" });
     }
@@ -90,5 +102,62 @@ exports.getProjectById = async (req, res) => {
   } catch (err) {
     console.error("Get project error:", err);
     res.status(500).json({ error: "Failed to load project" });
+  }
+};
+
+/**
+ * POST /projects/:projectId/open
+ * Open existing project in a room
+ */
+exports.openProjectInRoom = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { roomId } = req.body;
+
+    if (!roomId) {
+      return res.status(400).json({ error: "roomId is required" });
+    }
+
+    const userId = req.user.id || req.user._id;
+
+    const [project, room] = await Promise.all([
+      Project.findById(projectId),
+      Room.findById(roomId),
+    ]);
+
+    if (!project) return res.status(404).json({ error: "Project not found" });
+    if (!room) return res.status(404).json({ error: "Room not found" });
+
+    if (String(project.ownerUserId) !== String(userId)) {
+      return res.status(403).json({ error: "Not your project" });
+    }
+
+    room.activeProjectId = project._id;
+    room.sessionStarted = true;
+    room.currentView = "editor";
+    await room.save();
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(room._id.toString()).emit("project:activated", {
+        projectId: project._id.toString(),
+      });
+    }
+
+    console.log(
+      `📂 Project OPENED | project=${project._id} | room=${room._id}`
+    );
+
+    res.json({
+      success: true,
+      room: {
+        roomId: room._id,
+        activeProjectId: project._id,
+        currentView: room.currentView,
+      },
+    });
+  } catch (err) {
+    console.error("Open project error:", err);
+    res.status(500).json({ error: "Failed to open project" });
   }
 };

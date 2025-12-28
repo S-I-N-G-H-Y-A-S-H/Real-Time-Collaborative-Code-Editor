@@ -42,7 +42,6 @@ function WelcomePage() {
   const [isJoinOpen, setIsJoinOpen] = useState(false);
 
   const [hostRoomId, setHostRoomId] = useState(null);
-  const [creatingRoom, setCreatingRoom] = useState(false);
 
   const [showCreateProjectModal, setShowCreateProjectModal] =
     useState(false);
@@ -51,6 +50,9 @@ function WelcomePage() {
 
   const [projectName, setProjectName] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState(null);
+
+  const [projects, setProjects] = useState([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
 
   /* =========================
      AUTH GUARD
@@ -86,24 +88,17 @@ function WelcomePage() {
      ACTIONS
      ========================= */
 
-  // Open Local Project
   const handleOpenLocalProject = async () => {
-    try {
-      await openFolder();
-      if (roomId && isHost) syncViewAsHost("editor");
-      else navigate("/editor");
-    } catch (err) {
-      console.error(err);
-    }
+    await openFolder();
+    if (roomId && isHost) syncViewAsHost("editor");
+    else navigate("/editor");
   };
 
-  // Create Collaborative Project
   const handleCreateCollaborativeProject = () => {
     setProjectName("");
     setShowCreateProjectModal(true);
   };
 
-  // 🔑 FIXED: roomId passed to createProject
   const handleConfirmCreateProject = async () => {
     if (!projectName.trim()) return;
 
@@ -112,42 +107,85 @@ function WelcomePage() {
 
     setShowCreateProjectModal(false);
 
-    if (roomId && isHost) {
-      syncViewAsHost("editor");
-    } else {
-      navigate("/editor");
+    if (roomId && isHost) syncViewAsHost("editor");
+    else navigate("/editor");
+  };
+
+  /* =========================
+     OPEN COLLAB PROJECT (FETCH)
+     ========================= */
+
+  const handleOpenCollaborativeProject = async () => {
+    if (!roomId) {
+      alert("Create or join a collaborative session first.");
+      return;
+    }
+
+    setSelectedProjectId(null);
+    setShowOpenProjectModal(true);
+
+    try {
+      setLoadingProjects(true);
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(`${API_BASE}/projects/my`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setProjects(data.projects || []);
+    } catch (err) {
+      console.error("Failed to load projects:", err);
+      setProjects([]);
+    } finally {
+      setLoadingProjects(false);
     }
   };
 
-  // Open Collaborative Project (UI only for now)
-  const handleOpenCollaborativeProject = () => {
-    setSelectedProjectId(null);
-    setShowOpenProjectModal(true);
+  /* =========================
+     🔑 OPEN PROJECT IN ROOM (FIXED)
+     ========================= */
+
+  const handleOpenProjectInRoom = async (projectId) => {
+    if (!roomId || !projectId) {
+      alert("You must be in a collaborative session.");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(
+        `${API_BASE}/projects/${projectId}/open`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ roomId }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setShowOpenProjectModal(false);
+
+      // 🔑 CRITICAL FIX — HOST MUST SYNC VIEW
+      if (isHost) {
+        syncViewAsHost("editor");
+      }
+    } catch (err) {
+      console.error("Open project failed:", err);
+    }
   };
 
   /* =========================
      ROOM / INVITE
      ========================= */
-  async function createRoomOnServer(name = "Shared Session") {
-    try {
-      setCreatingRoom(true);
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/rooms`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token || "",
-        },
-        body: JSON.stringify({ name }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) return null;
-      return data.roomId || data.room?._id || null;
-    } finally {
-      setCreatingRoom(false);
-    }
-  }
 
   const handleInviteClick = async () => {
     if (hostRoomId) {
@@ -156,24 +194,30 @@ function WelcomePage() {
       return;
     }
 
-    const rid = await createRoomOnServer();
-    if (rid) {
-      setHostRoomId(rid);
-      joinRoom(rid);
-      setIsInviteOpen(true);
-    }
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_BASE}/rooms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token,
+      },
+      body: JSON.stringify({ name: "Shared Session" }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) return;
+
+    setHostRoomId(data.roomId);
+    joinRoom(data.roomId);
+    setIsInviteOpen(true);
   };
 
   const handleJoinClick = () => setIsJoinOpen(true);
 
   /* =========================
-     MOCK PROJECT LIST
-     ========================= */
-  const mockProjects = ["Sample Project 1", "Sample Project 2"];
-
-  /* =========================
      RENDER
      ========================= */
+
   return (
     <div className="welcome-wrapper">
       <Header onInviteClick={handleInviteClick} onJoinClick={handleJoinClick} />
@@ -215,8 +259,6 @@ function WelcomePage() {
           <div className="welcome-logo-center">
             <img src={logo} className="translucent-logo" />
           </div>
-
-          <div className="welcome-right" />
         </div>
       </div>
 
@@ -235,16 +277,13 @@ function WelcomePage() {
         onClose={() => setIsJoinOpen(false)}
       />
 
-      {/* ===== Create Collaborative Project Modal ===== */}
+      {/* Create Project Modal */}
       {showCreateProjectModal && (
         <div
           className="modal-overlay"
           onClick={() => setShowCreateProjectModal(false)}
         >
-          <div
-            className="modal-container"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
             <h3>Create Collaborative Project</h3>
 
             <input
@@ -265,35 +304,33 @@ function WelcomePage() {
         </div>
       )}
 
-      {/* ===== Open Collaborative Project Modal (UI only) ===== */}
+      {/* Open Collaborative Project */}
       {showOpenProjectModal && (
         <div
           className="modal-overlay"
           onClick={() => setShowOpenProjectModal(false)}
         >
-          <div
-            className="modal-container"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
             <h3>Open Collaborative Project</h3>
 
-            <div className="project-list">
-              {mockProjects.map((project) => (
-                <div
-                  key={project}
-                  className={`project-list-item ${
-                    selectedProjectId === project ? "selected" : ""
-                  }`}
-                  onClick={() => setSelectedProjectId(project)}
-                  onDoubleClick={() => {
-                    setShowOpenProjectModal(false);
-                    navigate("/editor");
-                  }}
-                >
-                  {project}
-                </div>
-              ))}
-            </div>
+            {loadingProjects ? (
+              <p>Loading projects…</p>
+            ) : (
+              <div className="project-list">
+                {projects.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`project-list-item ${
+                      selectedProjectId === p.id ? "selected" : ""
+                    }`}
+                    onClick={() => setSelectedProjectId(p.id)}
+                    onDoubleClick={() => handleOpenProjectInRoom(p.id)}
+                  >
+                    {p.name}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="modal-actions">
               <button onClick={() => setShowOpenProjectModal(false)}>
