@@ -11,15 +11,7 @@ import { useRoomSync } from "./RoomSyncContext";
 const API_BASE =
   import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
-/* =========================
-   CONTEXT
-   ========================= */
-
 const ProjectContext = createContext(null);
-
-/* =========================
-   PROVIDER
-   ========================= */
 
 export function ProjectProvider({ children }) {
   const { roomId, activeProjectId } = useRoomSync();
@@ -35,15 +27,11 @@ export function ProjectProvider({ children }) {
   });
 
   /* =========================
-     FILE STATE
+     FILE STATE (FLAT)
      ========================= */
 
   const [filesByPath, setFilesByPath] = useState({});
   const [activeFilePath, setActiveFilePath] = useState(null);
-
-  /* =========================
-     UI STATE
-     ========================= */
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -54,9 +42,7 @@ export function ProjectProvider({ children }) {
 
   const getAuthHeader = () => {
     const token = localStorage.getItem("token");
-    return {
-      Authorization: `Bearer ${token}`,
-    };
+    return { Authorization: `Bearer ${token}` };
   };
 
   function normalizeFiles(files = []) {
@@ -68,7 +54,41 @@ export function ProjectProvider({ children }) {
   }
 
   /* =========================
-     CREATE PROJECT (DB)
+     🌳 VIRTUAL TREE BUILDER
+     ========================= */
+
+  function buildVirtualTree(filesMap) {
+    const root = [];
+
+    Object.keys(filesMap).forEach((fullPath) => {
+      const parts = fullPath.split("/").filter(Boolean);
+      let current = root;
+
+      parts.forEach((part, index) => {
+        const isFile = index === parts.length - 1;
+        let node = current.find((n) => n.name === part);
+
+        if (!node) {
+          node = {
+            name: part,
+            path: parts.slice(0, index + 1).join("/"),
+            type: isFile ? "file" : "folder",
+            ...(isFile ? {} : { children: [] }),
+          };
+          current.push(node);
+        }
+
+        if (!isFile) {
+          current = node.children;
+        }
+      });
+    });
+
+    return root;
+  }
+
+  /* =========================
+     CREATE PROJECT
      ========================= */
 
   async function createProject(name) {
@@ -84,31 +104,24 @@ export function ProjectProvider({ children }) {
           "Content-Type": "application/json",
           ...getAuthHeader(),
         },
-        body: JSON.stringify({
-          name,
-          roomId: roomId || null, // 🔑 FIX: ALWAYS SEND ROOM ID
-        }),
+        body: JSON.stringify({ name, roomId }),
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to create project");
-      }
+      if (!res.ok) throw new Error(data.error);
 
-      const p = data.project;
+      const filesMap = normalizeFiles(data.project.files || []);
 
+      setFilesByPath(filesMap);
       setProject({
-        id: p._id,
-        name: p.name,
-        tree: [],
+        id: data.project._id,
+        name: data.project.name,
+        tree: buildVirtualTree(filesMap),
       });
 
-      setFilesByPath(normalizeFiles(p.files || []));
       setActiveFilePath(null);
-
-      return p;
+      return data.project;
     } catch (err) {
-      console.error("createProject error:", err);
       setError(err.message);
       return null;
     } finally {
@@ -117,7 +130,7 @@ export function ProjectProvider({ children }) {
   }
 
   /* =========================
-     LOAD PROJECT (DB)
+     LOAD PROJECT
      ========================= */
 
   async function loadProject(projectId) {
@@ -128,26 +141,23 @@ export function ProjectProvider({ children }) {
 
     try {
       const res = await fetch(`${API_BASE}/projects/${projectId}`, {
-        headers: {
-          ...getAuthHeader(),
-        },
+        headers: getAuthHeader(),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to load project");
+      if (!res.ok) throw new Error(data.error);
 
-      const { project: p } = data;
+      const filesMap = normalizeFiles(data.project.files || []);
 
+      setFilesByPath(filesMap);
       setProject({
-        id: p._id,
-        name: p.name,
-        tree: p.tree || [],
+        id: data.project._id,
+        name: data.project.name,
+        tree: buildVirtualTree(filesMap),
       });
 
-      setFilesByPath(normalizeFiles(p.files || []));
-      setActiveFilePath(p.files?.[0]?.path || null);
+      setActiveFilePath(data.project.files?.[0]?.path || null);
     } catch (err) {
-      console.error("loadProject error:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -155,21 +165,17 @@ export function ProjectProvider({ children }) {
   }
 
   /* =========================
-     🔑 AUTO LOAD PROJECT FOR GUESTS
+     AUTO LOAD FOR GUESTS
      ========================= */
 
   useEffect(() => {
-    if (
-      roomId &&
-      activeProjectId &&
-      project.id !== activeProjectId
-    ) {
+    if (roomId && activeProjectId && project.id !== activeProjectId) {
       loadProject(activeProjectId);
     }
   }, [roomId, activeProjectId]);
 
   /* =========================
-     FILE ACTIONS (UI)
+     FILE ACTIONS
      ========================= */
 
   function openFile(path) {
@@ -179,16 +185,9 @@ export function ProjectProvider({ children }) {
   function updateFileContent(path, content) {
     setFilesByPath((prev) => ({
       ...prev,
-      [path]: {
-        ...prev[path],
-        content,
-      },
+      [path]: { ...prev[path], content },
     }));
   }
-
-  /* =========================
-     FILE ACTIONS (DB)
-     ========================= */
 
   async function createFile(path) {
     if (!project.id) return;
@@ -209,49 +208,29 @@ export function ProjectProvider({ children }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setFilesByPath(normalizeFiles(data.files));
+      const filesMap = normalizeFiles(data.files);
+      setFilesByPath(filesMap);
+      setProject((p) => ({
+        ...p,
+        tree: buildVirtualTree(filesMap),
+      }));
       setActiveFilePath(path);
     } catch (err) {
       console.error("createFile error:", err);
     }
   }
 
-  async function saveFile(path) {
-    if (!project.id) return;
-
-    const file = filesByPath[path];
-    if (!file) return;
-
-    try {
-      await fetch(
-        `${API_BASE}/projects/${project.id}/files/content`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            ...getAuthHeader(),
-          },
-          body: JSON.stringify({
-            path,
-            content: file.content,
-          }),
-        }
-      );
-    } catch (err) {
-      console.error("saveFile error:", err);
-    }
-  }
-
   /* =========================
-     DERIVED STATE
+     DERIVED
      ========================= */
 
-  const activeFile = useMemo(() => {
-    return filesByPath[activeFilePath] || null;
-  }, [filesByPath, activeFilePath]);
+  const activeFile = useMemo(
+    () => filesByPath[activeFilePath] || null,
+    [filesByPath, activeFilePath]
+  );
 
   /* =========================
-     RESET ON ROOM LEAVE
+     RESET
      ========================= */
 
   useEffect(() => {
@@ -263,10 +242,6 @@ export function ProjectProvider({ children }) {
       setError(null);
     }
   }, [roomId]);
-
-  /* =========================
-     CONTEXT VALUE
-     ========================= */
 
   return (
     <ProjectContext.Provider
@@ -283,17 +258,12 @@ export function ProjectProvider({ children }) {
         openFile,
         updateFileContent,
         createFile,
-        saveFile,
       }}
     >
       {children}
     </ProjectContext.Provider>
   );
 }
-
-/* =========================
-   HOOK
-   ========================= */
 
 export function useProject() {
   const ctx = useContext(ProjectContext);

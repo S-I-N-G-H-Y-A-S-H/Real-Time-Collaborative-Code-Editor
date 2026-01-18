@@ -6,6 +6,9 @@ import { SidebarProvider } from "./context/SidebarContext";
 import { EditorProvider } from "./context/EditorContext";
 import { RoomSyncProvider } from "./context/RoomSyncContext";
 import { ProjectProvider } from "./context/ProjectContext"; // ✅ ADD THIS
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+
 
 import WelcomePage from "./pages/WelcomePage";
 import EditorPage from "./pages/EditorPage";
@@ -36,7 +39,8 @@ function App() {
                   {/* Auth */}
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/signup" element={<SignupPage />} />
-
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
                   {/* App */}
                   <Route
                     path="/welcome"
@@ -59,7 +63,11 @@ function App() {
                   {/* Default */}
                   <Route
                     path="*"
-                    element={<Navigate to="/welcome" replace />}
+                    element={
+                    localStorage.getItem("token")
+                      ? <Navigate to="/welcome" replace />
+                      : <Navigate to="/login" replace />
+                    }
                   />
                 </Routes>
               </ProjectProvider>

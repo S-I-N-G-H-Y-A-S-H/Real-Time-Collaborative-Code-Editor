@@ -39,7 +39,7 @@ function ResetPasswordPage() {
 
     try {
       const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/auth/reset-password`,
+        `${import.meta.env.VITE_API_BASE}/api/auth/reset-password`,
         { email, otp, newPassword }
       );
       setMessage(res.data.message);
