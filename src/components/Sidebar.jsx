@@ -32,7 +32,6 @@ function Sidebar() {
 
   /**
    * 🔑 MODE DETECTION
-   * ProjectContext is the source of truth
    */
   const isCollaborative = Boolean(projectCtx.project?.id);
 
@@ -40,12 +39,11 @@ function Sidebar() {
    * ======================
    * SIDEBAR SOURCE ADAPTER
    * ======================
-   * UI stays identical — only data switches
    */
   const sidebarSource = useMemo(() => {
     if (isCollaborative) {
       return {
-        // 🚀 COLLABORATIVE MODE (DB-backed)
+        // 🚀 COLLABORATIVE MODE (DB-backed, virtual folders)
         projectTree: projectCtx.project.tree || [],
         currentFile: projectCtx.activeFile,
         rootFolderName:
@@ -55,15 +53,42 @@ function Sidebar() {
         openFolder: () => {},
         openFile: (node) => projectCtx.openFile(node.path),
 
-        createFile: async (name) => projectCtx.createFile(name),
-        createFolder: async () => {}, // phase-2
-        renameItem: async () => {},   // phase-2
-        deleteItem: async () => {},   // phase-2
-        refreshTree: () => {},        // phase-2
+        createFile: async (name, selectedItem) => {
+          let basePath = "";
+
+          if (selectedItem?.type === "folder") {
+            basePath = selectedItem.path;
+          }
+
+          const filePath = basePath
+            ? `${basePath}/${name}`
+            : name;
+
+          await projectCtx.createFile(filePath);
+        },
+
+        // ✅ VIRTUAL FOLDER CREATION
+        createFolder: async (name, selectedItem) => {
+          let basePath = "";
+
+          if (selectedItem?.type === "folder") {
+            basePath = selectedItem.path;
+          }
+
+          const folderPath = basePath
+            ? `${basePath}/${name}`
+            : name;
+
+          projectCtx.createVirtualFolder(folderPath);
+        },
+
+        renameItem: async () => {},   // next step
+        deleteItem: async () => {},   // next step
+        refreshTree: () => {},        // optional later
       };
     }
 
-    // ✅ LOCAL FILESYSTEM MODE
+    // ✅ LOCAL FILESYSTEM MODE (unchanged)
     return {
       projectTree: fileCtx.projectTree,
       currentFile: fileCtx.currentFile,
@@ -92,7 +117,9 @@ function Sidebar() {
     { id: "extensions", icon: extension, alt: "Extensions" },
   ];
 
-  const sectionsBottom = [{ id: "settings", icon: settings, alt: "Settings" }];
+  const sectionsBottom = [
+    { id: "settings", icon: settings, alt: "Settings" },
+  ];
 
   const handleConfirm = async (name) => {
     if (modalType === "file") {
@@ -123,19 +150,8 @@ function Sidebar() {
       </div>
 
       {/* Bottom Icons */}
-      <div
-        className="sidebar-section bottom"
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          alignItems: "center",
-        }}
-      >
-        <div style={{ marginBottom: 6 }}>
-          <ProfileButton icon={profile} />
-        </div>
-
+      <div className="sidebar-section bottom">
+        <ProfileButton icon={profile} />
         {sectionsBottom.map((s) => (
           <img
             key={s.id}
@@ -168,31 +184,14 @@ function Sidebar() {
             </>
           ) : (
             <>
-              {/* Root Header */}
               <div className="explorer-header">
                 <img
-                  src={
-                    rootCollapsed ? unCollapseIcon : collapseIcon
-                  }
+                  src={rootCollapsed ? unCollapseIcon : collapseIcon}
                   className="explorer-icon"
-                  onClick={() =>
-                    setRootCollapsed(!rootCollapsed)
-                  }
+                  onClick={() => setRootCollapsed(!rootCollapsed)}
                 />
-                <span
-                  className={`project-name ${
-                    selectedItem?.type === "root"
-                      ? "selected"
-                      : ""
-                  }`}
-                  onClick={() =>
-                    setSelectedItem({
-                      type: "root",
-                      path: sidebarSource.rootFolderName,
-                      name: sidebarSource.rootFolderName,
-                    })
-                  }
-                >
+
+                <span className="project-name">
                   {sidebarSource.rootFolderName}
                 </span>
 
@@ -203,15 +202,12 @@ function Sidebar() {
                     onClick={() => setModalType("file")}
                   />
 
-                  {!isCollaborative && (
-                    <img
-                      src={newFolderIcon}
-                      className="explorer-icon"
-                      onClick={() =>
-                        setModalType("folder")
-                      }
-                    />
-                  )}
+                  {/* ✅ FOLDER ICON NOW ENABLED */}
+                  <img
+                    src={newFolderIcon}
+                    className="explorer-icon"
+                    onClick={() => setModalType("folder")}
+                  />
 
                   <img
                     src={refreshIcon}

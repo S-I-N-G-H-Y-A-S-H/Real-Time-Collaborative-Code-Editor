@@ -33,6 +33,12 @@ export function ProjectProvider({ children }) {
   const [filesByPath, setFilesByPath] = useState({});
   const [activeFilePath, setActiveFilePath] = useState(null);
 
+  /* =========================
+     🧠 VIRTUAL FOLDERS
+     ========================= */
+
+  const [virtualFolders, setVirtualFolders] = useState(new Set());
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -57,9 +63,37 @@ export function ProjectProvider({ children }) {
      🌳 VIRTUAL TREE BUILDER
      ========================= */
 
-  function buildVirtualTree(filesMap) {
+  function buildVirtualTree(filesMap, foldersSet) {
     const root = [];
 
+    function ensureFolder(path) {
+      const parts = path.split("/").filter(Boolean);
+      let current = root;
+
+      parts.forEach((part, index) => {
+        let node = current.find((n) => n.name === part);
+
+        if (!node) {
+          node = {
+            name: part,
+            path: parts.slice(0, index + 1).join("/"),
+            type: "folder",
+            virtual: true,
+            children: [],
+          };
+          current.push(node);
+        }
+
+        current = node.children;
+      });
+    }
+
+    // 1️⃣ Create all virtual folders first
+    foldersSet.forEach((folderPath) => {
+      ensureFolder(folderPath);
+    });
+
+    // 2️⃣ Insert files (and real folders from paths)
     Object.keys(filesMap).forEach((fullPath) => {
       const parts = fullPath.split("/").filter(Boolean);
       let current = root;
@@ -85,6 +119,13 @@ export function ProjectProvider({ children }) {
     });
 
     return root;
+  }
+
+  function rebuildTree(files = filesByPath, folders = virtualFolders) {
+    setProject((p) => ({
+      ...p,
+      tree: buildVirtualTree(files, folders),
+    }));
   }
 
   /* =========================
@@ -113,10 +154,11 @@ export function ProjectProvider({ children }) {
       const filesMap = normalizeFiles(data.project.files || []);
 
       setFilesByPath(filesMap);
+      setVirtualFolders(new Set());
       setProject({
         id: data.project._id,
         name: data.project.name,
-        tree: buildVirtualTree(filesMap),
+        tree: buildVirtualTree(filesMap, new Set()),
       });
 
       setActiveFilePath(null);
@@ -150,10 +192,11 @@ export function ProjectProvider({ children }) {
       const filesMap = normalizeFiles(data.project.files || []);
 
       setFilesByPath(filesMap);
+      setVirtualFolders(new Set());
       setProject({
         id: data.project._id,
         name: data.project.name,
-        tree: buildVirtualTree(filesMap),
+        tree: buildVirtualTree(filesMap, new Set()),
       });
 
       setActiveFilePath(data.project.files?.[0]?.path || null);
@@ -190,13 +233,57 @@ export function ProjectProvider({ children }) {
   }
 
   async function createFile(path) {
-    if (!project.id) return;
+    if (!project.id || !roomId) return;
 
     try {
       const res = await fetch(
         `${API_BASE}/projects/${project.id}/files`,
         {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({
+            path,
+            roomId, // ✅ REQUIRED FIX
+          }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      const filesMap = normalizeFiles(data.files);
+      setFilesByPath(filesMap);
+      rebuildTree(filesMap);
+      setActiveFilePath(path);
+    } catch (err) {
+      console.error("createFile error:", err);
+    }
+  }
+
+  async function deleteItem(path, type) {
+    if (!project.id) return;
+
+    if (type === "folder") {
+      setVirtualFolders((prev) => {
+        const next = new Set(
+          [...prev].filter(
+            (p) => p !== path && !p.startsWith(path + "/")
+          )
+        );
+        rebuildTree(filesByPath, next);
+        return next;
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/projects/${project.id}/files`,
+        {
+          method: "DELETE",
           headers: {
             "Content-Type": "application/json",
             ...getAuthHeader(),
@@ -210,14 +297,35 @@ export function ProjectProvider({ children }) {
 
       const filesMap = normalizeFiles(data.files);
       setFilesByPath(filesMap);
-      setProject((p) => ({
-        ...p,
-        tree: buildVirtualTree(filesMap),
-      }));
-      setActiveFilePath(path);
+      rebuildTree(filesMap);
+      setActiveFilePath(null);
     } catch (err) {
-      console.error("createFile error:", err);
+      console.error("delete error:", err);
     }
+  }
+
+  function createVirtualFolder(path) {
+    setVirtualFolders((prev) => {
+      const next = new Set(prev);
+      next.add(path);
+      rebuildTree(filesByPath, next);
+      return next;
+    });
+  }
+
+  function renameVirtualFolder(oldPath, newPath) {
+    setVirtualFolders((prev) => {
+      const next = new Set();
+      prev.forEach((p) => {
+        if (p === oldPath || p.startsWith(oldPath + "/")) {
+          next.add(newPath + p.slice(oldPath.length));
+        } else {
+          next.add(p);
+        }
+      });
+      rebuildTree(filesByPath, next);
+      return next;
+    });
   }
 
   /* =========================
@@ -237,6 +345,7 @@ export function ProjectProvider({ children }) {
     if (!roomId) {
       setProject({ id: null, name: "", tree: [] });
       setFilesByPath({});
+      setVirtualFolders(new Set());
       setActiveFilePath(null);
       setLoading(false);
       setError(null);
@@ -257,7 +366,12 @@ export function ProjectProvider({ children }) {
         loadProject,
         openFile,
         updateFileContent,
+
         createFile,
+        deleteItem,
+
+        createVirtualFolder,
+        renameVirtualFolder,
       }}
     >
       {children}
