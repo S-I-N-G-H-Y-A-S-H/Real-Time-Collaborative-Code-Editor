@@ -13,6 +13,13 @@ const API_BASE =
 
 const ProjectContext = createContext(null);
 
+/* =========================
+   🔒 PATH NORMALIZER (GLOBAL)
+   ========================= */
+function normalizePath(path = "") {
+  return path.replace(/^\/+/, "").replace(/^\.\/+/, "");
+}
+
 export function ProjectProvider({ children }) {
   const { roomId, activeProjectId } = useRoomSync();
 
@@ -54,7 +61,11 @@ export function ProjectProvider({ children }) {
   function normalizeFiles(files = []) {
     const map = {};
     files.forEach((f) => {
-      map[f.path] = f;
+      const normalized = normalizePath(f.path);
+      map[normalized] = {
+        ...f,
+        path: normalized,
+      };
     });
     return map;
   }
@@ -88,12 +99,10 @@ export function ProjectProvider({ children }) {
       });
     }
 
-    // 1️⃣ Create all virtual folders first
     foldersSet.forEach((folderPath) => {
       ensureFolder(folderPath);
     });
 
-    // 2️⃣ Insert files (and real folders from paths)
     Object.keys(filesMap).forEach((fullPath) => {
       const parts = fullPath.split("/").filter(Boolean);
       let current = root;
@@ -112,9 +121,7 @@ export function ProjectProvider({ children }) {
           current.push(node);
         }
 
-        if (!isFile) {
-          current = node.children;
-        }
+        if (!isFile) current = node.children;
       });
     });
 
@@ -129,7 +136,7 @@ export function ProjectProvider({ children }) {
   }
 
   /* =========================
-     CREATE PROJECT
+     CREATE / LOAD PROJECT
      ========================= */
 
   async function createProject(name) {
@@ -171,10 +178,6 @@ export function ProjectProvider({ children }) {
     }
   }
 
-  /* =========================
-     LOAD PROJECT
-     ========================= */
-
   async function loadProject(projectId) {
     if (!projectId) return;
 
@@ -199,17 +202,14 @@ export function ProjectProvider({ children }) {
         tree: buildVirtualTree(filesMap, new Set()),
       });
 
-      setActiveFilePath(data.project.files?.[0]?.path || null);
+      const first = data.project.files?.[0]?.path;
+      setActiveFilePath(first ? normalizePath(first) : null);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }
-
-  /* =========================
-     AUTO LOAD FOR GUESTS
-     ========================= */
 
   useEffect(() => {
     if (roomId && activeProjectId && project.id !== activeProjectId) {
@@ -222,18 +222,21 @@ export function ProjectProvider({ children }) {
      ========================= */
 
   function openFile(path) {
-    setActiveFilePath(path);
+    setActiveFilePath(normalizePath(path));
   }
 
   function updateFileContent(path, content) {
+    const normalized = normalizePath(path);
     setFilesByPath((prev) => ({
       ...prev,
-      [path]: { ...prev[path], content },
+      [normalized]: { ...prev[normalized], content },
     }));
   }
 
   async function createFile(path) {
     if (!project.id || !roomId) return;
+
+    const normalized = normalizePath(path);
 
     try {
       const res = await fetch(
@@ -244,9 +247,44 @@ export function ProjectProvider({ children }) {
             "Content-Type": "application/json",
             ...getAuthHeader(),
           },
+          body: JSON.stringify({ path: normalized, roomId }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      const filesMap = normalizeFiles(data.files);
+      setFilesByPath(filesMap);
+      rebuildTree(filesMap);
+      setActiveFilePath(normalized);
+    } catch (err) {
+      console.error("createFile error:", err);
+    }
+  }
+
+  async function renameItem(oldPath, newName, type) {
+    if (type !== "file") return;
+    if (!project.id || !roomId) return;
+
+    const oldNorm = normalizePath(oldPath);
+    const base = oldNorm.split("/").slice(0, -1).join("/");
+    const newPath = base ? `${base}/${newName}` : newName;
+    const newNorm = normalizePath(newPath);
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/projects/${project.id}/files/rename`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeader(),
+          },
           body: JSON.stringify({
-            path,
-            roomId, // ✅ REQUIRED FIX
+            oldPath: oldNorm,
+            newPath: newNorm,
+            roomId,
           }),
         }
       );
@@ -257,20 +295,25 @@ export function ProjectProvider({ children }) {
       const filesMap = normalizeFiles(data.files);
       setFilesByPath(filesMap);
       rebuildTree(filesMap);
-      setActiveFilePath(path);
+
+      if (normalizePath(activeFilePath) === oldNorm) {
+        setActiveFilePath(newNorm);
+      }
     } catch (err) {
-      console.error("createFile error:", err);
+      console.error("renameFile error:", err);
     }
   }
 
   async function deleteItem(path, type) {
-    if (!project.id) return;
+    if (!project.id || !roomId) return;
+
+    const normalized = normalizePath(path);
 
     if (type === "folder") {
       setVirtualFolders((prev) => {
         const next = new Set(
           [...prev].filter(
-            (p) => p !== path && !p.startsWith(path + "/")
+            (p) => p !== normalized && !p.startsWith(normalized + "/")
           )
         );
         rebuildTree(filesByPath, next);
@@ -288,7 +331,7 @@ export function ProjectProvider({ children }) {
             "Content-Type": "application/json",
             ...getAuthHeader(),
           },
-          body: JSON.stringify({ path }),
+          body: JSON.stringify({ path: normalized, roomId }),
         }
       );
 
@@ -305,20 +348,24 @@ export function ProjectProvider({ children }) {
   }
 
   function createVirtualFolder(path) {
+    const normalized = normalizePath(path);
     setVirtualFolders((prev) => {
       const next = new Set(prev);
-      next.add(path);
+      next.add(normalized);
       rebuildTree(filesByPath, next);
       return next;
     });
   }
 
   function renameVirtualFolder(oldPath, newPath) {
+    const oldNorm = normalizePath(oldPath);
+    const newNorm = normalizePath(newPath);
+
     setVirtualFolders((prev) => {
       const next = new Set();
       prev.forEach((p) => {
-        if (p === oldPath || p.startsWith(oldPath + "/")) {
-          next.add(newPath + p.slice(oldPath.length));
+        if (p === oldNorm || p.startsWith(oldNorm + "/")) {
+          next.add(newNorm + p.slice(oldNorm.length));
         } else {
           next.add(p);
         }
@@ -368,6 +415,7 @@ export function ProjectProvider({ children }) {
         updateFileContent,
 
         createFile,
+        renameItem,
         deleteItem,
 
         createVirtualFolder,

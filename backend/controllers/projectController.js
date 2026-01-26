@@ -217,6 +217,12 @@ exports.renameFile = async (req, res) => {
         .json({ error: "oldPath, newPath and roomId required" });
     }
 
+    const normalize = (p = "") =>
+      p.replace(/^\/+/, "").replace(/^\.\/+/, "");
+
+    const oldNorm = normalize(oldPath);
+    const newNorm = normalize(newPath);
+
     const [project, room] = await Promise.all([
       Project.findById(projectId),
       Room.findById(roomId),
@@ -225,15 +231,20 @@ exports.renameFile = async (req, res) => {
     if (!project) return res.status(404).json({ error: "Project not found" });
     if (!room) return res.status(404).json({ error: "Room not found" });
 
-    project.files.forEach((file) => {
-      if (file.path === oldPath) {
-        file.path = newPath;
-      } else if (file.path.startsWith(oldPath + "/")) {
-        file.path = newPath + file.path.slice(oldPath.length);
-      }
-      file.updatedAt = new Date();
-      file.lastEditedBy = req.user.id;
-    });
+    const index = project.files.findIndex(
+      (f) => normalize(f.path) === oldNorm
+    );
+
+    if (index === -1) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    project.files[index] = {
+      ...project.files[index].toObject(),
+      path: newNorm,
+      updatedAt: new Date(),
+      lastEditedBy: req.user.id,
+    };
 
     await project.save();
 
@@ -252,6 +263,7 @@ exports.renameFile = async (req, res) => {
     res.status(500).json({ error: "Failed to rename" });
   }
 };
+
 
 /**
  * DELETE /projects/:projectId/files

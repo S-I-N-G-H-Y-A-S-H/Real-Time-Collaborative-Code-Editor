@@ -82,7 +82,14 @@ function Sidebar() {
           projectCtx.createVirtualFolder(folderPath);
         },
 
-        renameItem: async () => {},   // next step
+        renameItem: async (oldPath, newName, type) => {
+        const normalizedOldPath = oldPath.startsWith("/")
+          ? oldPath.slice(1)
+          : oldPath;
+
+        await projectCtx.renameItem(normalizedOldPath, newName, type);
+      },
+
         deleteItem: async () => {},   // next step
         refreshTree: () => {},        // optional later
       };
