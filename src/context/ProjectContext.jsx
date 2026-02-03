@@ -269,8 +269,7 @@ export function ProjectProvider({ children }) {
 
     const oldNorm = normalizePath(oldPath);
     const base = oldNorm.split("/").slice(0, -1).join("/");
-    const newPath = base ? `${base}/${newName}` : newName;
-    const newNorm = normalizePath(newPath);
+    const newNorm = normalizePath(base ? `${base}/${newName}` : newName);
 
     try {
       const res = await fetch(
@@ -305,6 +304,7 @@ export function ProjectProvider({ children }) {
   }
 
   async function deleteItem(path, type) {
+    console.log("DELETE CONTEXT CALLED", { path, type });
     if (!project.id || !roomId) return;
 
     const normalized = normalizePath(path);
@@ -319,6 +319,10 @@ export function ProjectProvider({ children }) {
         rebuildTree(filesByPath, next);
         return next;
       });
+
+      if (activeFilePath?.startsWith(normalized + "/")) {
+        setActiveFilePath(null);
+      }
       return;
     }
 
@@ -341,7 +345,10 @@ export function ProjectProvider({ children }) {
       const filesMap = normalizeFiles(data.files);
       setFilesByPath(filesMap);
       rebuildTree(filesMap);
-      setActiveFilePath(null);
+
+      if (activeFilePath === normalized) {
+        setActiveFilePath(null);
+      }
     } catch (err) {
       console.error("delete error:", err);
     }

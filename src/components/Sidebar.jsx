@@ -90,7 +90,13 @@ function Sidebar() {
         await projectCtx.renameItem(normalizedOldPath, newName, type);
       },
 
-        deleteItem: async () => {},   // next step
+        deleteItem: async (path, type) => {
+          const normalizedPath = path.startsWith("/")
+            ? path.slice(1)
+            : path;
+
+          await projectCtx.deleteItem(normalizedPath, type);
+        },
         refreshTree: () => {},        // optional later
       };
     }

@@ -32,7 +32,7 @@ function ProjectTree({
       }
 
       if (e.key === "Delete") {
-        onDeleteItem(selectedItem);
+        onDeleteItem(selectedItem.path, selectedItem.type);
         setSelectedItem(null);
       }
     };
@@ -201,7 +201,8 @@ function ProjectTree({
           </li>
           <li
             onClick={() => {
-              onDeleteItem({ ...contextMenu.item, path: contextMenu.path });
+              onDeleteItem(contextMenu.path, contextMenu.item.type);
+
               setContextMenu(null);
             }}
           >
