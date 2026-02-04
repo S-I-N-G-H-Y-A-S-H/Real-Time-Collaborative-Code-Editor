@@ -145,7 +145,7 @@ function WelcomePage() {
   };
 
   /* =========================
-     🔑 OPEN PROJECT IN ROOM (FIXED)
+     🔑 OPEN PROJECT IN ROOM
      ========================= */
 
   const handleOpenProjectInRoom = async (projectId) => {
@@ -174,7 +174,6 @@ function WelcomePage() {
 
       setShowOpenProjectModal(false);
 
-      // 🔑 CRITICAL FIX — HOST MUST SYNC VIEW
       if (isHost) {
         syncViewAsHost("editor");
       }
@@ -184,7 +183,7 @@ function WelcomePage() {
   };
 
   /* =========================
-     ROOM / INVITE
+     ROOM / INVITE  ✅ FIXED
      ========================= */
 
   const handleInviteClick = async () => {
@@ -195,17 +194,21 @@ function WelcomePage() {
     }
 
     const token = localStorage.getItem("token");
+
     const res = await fetch(`${API_BASE}/rooms`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: token,
+        Authorization: `Bearer ${token}`, // ✅ FIX
       },
       body: JSON.stringify({ name: "Shared Session" }),
     });
 
     const data = await res.json();
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.error("Create room failed:", data);
+      return;
+    }
 
     setHostRoomId(data.roomId);
     joinRoom(data.roomId);
