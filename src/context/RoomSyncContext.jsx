@@ -20,24 +20,29 @@ export function RoomSyncProvider({ children }) {
   // 🔑 Active collaborative project
   const [activeProjectId, setActiveProjectId] = useState(null);
 
+  // 🆕 FILE SYNC PAYLOAD
+  const [filesUpdate, setFilesUpdate] = useState(null);
+
   /* =========================
      SOCKET LISTENERS
      ========================= */
 
   useEffect(() => {
+    // View sync
     socketService.onViewSynced((payload) => {
       if (payload?.page) {
         setCurrentView(payload.page);
       }
     });
 
+    // Participants
     socketService.onParticipantsUpdate((data) => {
       if (Array.isArray(data?.participants)) {
         setParticipants(data.participants);
       }
     });
 
-    // 🔑 Project activated (host created project)
+    // Project activated
     socketService.onProjectActivated((payload) => {
       if (!payload?.projectId) return;
 
@@ -45,10 +50,21 @@ export function RoomSyncProvider({ children }) {
       setCurrentView("editor");
     });
 
+    // 🆕 Files updated (create / rename / delete)
+    socketService.onFilesUpdated((payload) => {
+      if (
+        payload?.projectId &&
+        Array.isArray(payload?.files)
+      ) {
+        setFilesUpdate(payload);
+      }
+    });
+
     return () => {
       socketService.offViewSynced();
       socketService.offParticipantsUpdate();
       socketService.offProjectActivated();
+      socketService.offFilesUpdated();
     };
   }, []);
 
@@ -57,7 +73,6 @@ export function RoomSyncProvider({ children }) {
      ========================= */
 
   useEffect(() => {
-    // If user is already in editor but missed project activation
     if (
       roomId &&
       currentView === "editor" &&
@@ -114,6 +129,7 @@ export function RoomSyncProvider({ children }) {
     setCurrentView("welcome");
     setParticipants([]);
     setActiveProjectId(null);
+    setFilesUpdate(null);
   };
 
   const syncViewAsHost = (page) => {
@@ -132,6 +148,9 @@ export function RoomSyncProvider({ children }) {
         participants,
         activeProjectId,
         inRoom: !!roomId,
+
+        // 🆕 expose file updates
+        filesUpdate,
 
         joinRoom,
         leaveRoom,

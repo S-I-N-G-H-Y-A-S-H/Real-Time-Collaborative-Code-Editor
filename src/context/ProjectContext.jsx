@@ -14,14 +14,14 @@ const API_BASE =
 const ProjectContext = createContext(null);
 
 /* =========================
-   🔒 PATH NORMALIZER (GLOBAL)
+   🔒 PATH NORMALIZER
    ========================= */
 function normalizePath(path = "") {
   return path.replace(/^\/+/, "").replace(/^\.\/+/, "");
 }
 
 export function ProjectProvider({ children }) {
-  const { roomId, activeProjectId } = useRoomSync();
+  const { roomId, activeProjectId, filesUpdate } = useRoomSync();
 
   /* =========================
      PROJECT STATE
@@ -34,7 +34,7 @@ export function ProjectProvider({ children }) {
   });
 
   /* =========================
-     FILE STATE (FLAT)
+     FILE STATE
      ========================= */
 
   const [filesByPath, setFilesByPath] = useState({});
@@ -71,7 +71,7 @@ export function ProjectProvider({ children }) {
   }
 
   /* =========================
-     🌳 VIRTUAL TREE BUILDER
+     🌳 TREE BUILDER
      ========================= */
 
   function buildVirtualTree(filesMap, foldersSet) {
@@ -99,9 +99,7 @@ export function ProjectProvider({ children }) {
       });
     }
 
-    foldersSet.forEach((folderPath) => {
-      ensureFolder(folderPath);
-    });
+    foldersSet.forEach(ensureFolder);
 
     Object.keys(filesMap).forEach((fullPath) => {
       const parts = fullPath.split("/").filter(Boolean);
@@ -217,6 +215,26 @@ export function ProjectProvider({ children }) {
     }
   }, [roomId, activeProjectId]);
 
+  /* =========================================================
+     🔁 REALTIME FILE SYNC (FROM SOCKET SERVER)
+     ========================================================= */
+
+  useEffect(() => {
+    if (!filesUpdate || filesUpdate.projectId !== project.id) return;
+
+    const filesMap = normalizeFiles(filesUpdate.files);
+
+    setFilesByPath(filesMap);
+    rebuildTree(filesMap);
+
+    if (
+      activeFilePath &&
+      !filesMap[normalizePath(activeFilePath)]
+    ) {
+      setActiveFilePath(null);
+    }
+  }, [filesUpdate]);
+
   /* =========================
      FILE ACTIONS
      ========================= */
@@ -264,8 +282,7 @@ export function ProjectProvider({ children }) {
   }
 
   async function renameItem(oldPath, newName, type) {
-    if (type !== "file") return;
-    if (!project.id || !roomId) return;
+    if (type !== "file" || !project.id || !roomId) return;
 
     const oldNorm = normalizePath(oldPath);
     const base = oldNorm.split("/").slice(0, -1).join("/");
@@ -295,7 +312,7 @@ export function ProjectProvider({ children }) {
       setFilesByPath(filesMap);
       rebuildTree(filesMap);
 
-      if (normalizePath(activeFilePath) === oldNorm) {
+      if (activeFilePath === oldNorm) {
         setActiveFilePath(newNorm);
       }
     } catch (err) {
@@ -304,7 +321,6 @@ export function ProjectProvider({ children }) {
   }
 
   async function deleteItem(path, type) {
-    console.log("DELETE CONTEXT CALLED", { path, type });
     if (!project.id || !roomId) return;
 
     const normalized = normalizePath(path);
@@ -319,10 +335,6 @@ export function ProjectProvider({ children }) {
         rebuildTree(filesByPath, next);
         return next;
       });
-
-      if (activeFilePath?.startsWith(normalized + "/")) {
-        setActiveFilePath(null);
-      }
       return;
     }
 
@@ -353,6 +365,10 @@ export function ProjectProvider({ children }) {
       console.error("delete error:", err);
     }
   }
+
+  /* =========================
+     🧠 VIRTUAL FOLDER ACTIONS
+     ========================= */
 
   function createVirtualFolder(path) {
     const normalized = normalizePath(path);

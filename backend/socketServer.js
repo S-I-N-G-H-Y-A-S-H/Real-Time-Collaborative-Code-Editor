@@ -2,6 +2,7 @@
 require("dotenv").config();
 const http = require("http");
 const mongoose = require("mongoose");
+const express = require("express");
 const { Server } = require("socket.io");
 
 const Room = require("./models/Room");
@@ -16,7 +17,14 @@ if (!MONGO_URI) {
   process.exit(1);
 }
 
-const httpServer = http.createServer();
+/* =========================
+   HTTP APP (FOR INTERNAL API)
+   ========================= */
+const app = express();
+app.use(express.json());
+
+const httpServer = http.createServer(app);
+
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
@@ -56,6 +64,30 @@ async function broadcastParticipants(roomId) {
     participants,
   });
 }
+
+/* =========================================================
+   🔥 INTERNAL FILE SYNC ENDPOINT (NEW)
+   ========================================================= */
+/**
+ * POST /internal/files-updated
+ * body: { roomId, projectId, files }
+ * Called ONLY by Express server (5000)
+ */
+app.post("/internal/files-updated", (req, res) => {
+  const { roomId, projectId, files } = req.body;
+
+  if (!roomId || !projectId || !Array.isArray(files)) {
+    return res.status(400).json({ error: "Invalid payload" });
+  }
+
+  io.to(String(roomId)).emit("files:updated", {
+    roomId: String(roomId),
+    projectId: String(projectId),
+    files,
+  });
+
+  return res.json({ success: true });
+});
 
 /* =========================
    SOCKET
@@ -123,10 +155,9 @@ io.on("connection", (socket) => {
         participant.socketId = socket.id;
         participant.online = true;
         participant.lastActive = new Date();
-        participant.username = username; // always refresh from DB
+        participant.username = username;
       }
 
-      // Default view (important for late joiners)
       if (!room.currentView) {
         room.currentView = "welcome";
       }
@@ -145,7 +176,6 @@ io.on("connection", (socket) => {
 
       await broadcastParticipants(room._id);
 
-      // 🔄 Sync current view for late joiners
       socket.emit("view-synced", {
         roomId: String(room._id),
         page: room.currentView,
@@ -171,7 +201,6 @@ io.on("connection", (socket) => {
       const room = await Room.findById(roomId);
       if (!room) return;
 
-      // 🔐 Only host can sync view
       if (String(room.hostUserId) !== String(userId)) return;
 
       room.currentView = page;

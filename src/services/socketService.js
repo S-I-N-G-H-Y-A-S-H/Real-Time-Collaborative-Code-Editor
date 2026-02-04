@@ -9,9 +9,11 @@ class SocketService {
     this.socket = null;
     this.currentRoomId = null;
 
+    // handlers
     this.participantsHandler = null;
     this.viewHandler = null;
-    this.projectActivatedHandler = null; // ✅ NEW
+    this.projectActivatedHandler = null;
+    this.filesUpdatedHandler = null; // 🆕 FILE SYNC
   }
 
   /* =========================
@@ -68,7 +70,10 @@ class SocketService {
     this.connect();
 
     if (this.participantsHandler) {
-      this.socket.off("participants-updated", this.participantsHandler);
+      this.socket.off(
+        "participants-updated",
+        this.participantsHandler
+      );
     }
 
     this.participantsHandler = callback;
@@ -78,7 +83,10 @@ class SocketService {
   offParticipantsUpdate() {
     if (!this.socket || !this.participantsHandler) return;
 
-    this.socket.off("participants-updated", this.participantsHandler);
+    this.socket.off(
+      "participants-updated",
+      this.participantsHandler
+    );
     this.participantsHandler = null;
   }
 
@@ -116,7 +124,7 @@ class SocketService {
   }
 
   /* =========================
-     PROJECT ACTIVATION (NEW)
+     PROJECT ACTIVATION
      ========================= */
 
   onProjectActivated(callback) {
@@ -125,7 +133,10 @@ class SocketService {
     this.connect();
 
     if (this.projectActivatedHandler) {
-      this.socket.off("project:activated", this.projectActivatedHandler);
+      this.socket.off(
+        "project:activated",
+        this.projectActivatedHandler
+      );
     }
 
     this.projectActivatedHandler = callback;
@@ -135,8 +146,35 @@ class SocketService {
   offProjectActivated() {
     if (!this.socket || !this.projectActivatedHandler) return;
 
-    this.socket.off("project:activated", this.projectActivatedHandler);
+    this.socket.off(
+      "project:activated",
+      this.projectActivatedHandler
+    );
     this.projectActivatedHandler = null;
+  }
+
+  /* =========================
+     🆕 FILE SYNC (CREATE / RENAME / DELETE)
+     ========================= */
+
+  onFilesUpdated(callback) {
+    if (!callback) return;
+
+    this.connect();
+
+    if (this.filesUpdatedHandler) {
+      this.socket.off("files:updated", this.filesUpdatedHandler);
+    }
+
+    this.filesUpdatedHandler = callback;
+    this.socket.on("files:updated", callback);
+  }
+
+  offFilesUpdated() {
+    if (!this.socket || !this.filesUpdatedHandler) return;
+
+    this.socket.off("files:updated", this.filesUpdatedHandler);
+    this.filesUpdatedHandler = null;
   }
 
   /* =========================
@@ -151,9 +189,11 @@ class SocketService {
 
     this.socket = null;
     this.currentRoomId = null;
+
     this.participantsHandler = null;
     this.viewHandler = null;
     this.projectActivatedHandler = null;
+    this.filesUpdatedHandler = null;
   }
 }
 

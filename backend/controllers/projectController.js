@@ -1,6 +1,13 @@
 const Project = require("../models/Project");
 const Room = require("../models/Room");
 
+
+/* =========================
+   SOCKET SERVER CONFIG
+   ========================= */
+const SOCKET_SERVER_URL =
+  process.env.SOCKET_SERVER_URL || "http://localhost:5001";
+
 /* =========================================================
    PROJECT CREATION
    ========================================================= */
@@ -28,6 +35,7 @@ exports.createProject = async (req, res) => {
         room.currentView = "editor";
         await room.save();
 
+        // 🔔 Project activation stays on main server socket
         const io = req.app.get("io");
         if (io) {
           io.to(String(room._id)).emit("project:activated", {
@@ -149,12 +157,27 @@ exports.openProjectInRoom = async (req, res) => {
 };
 
 /* =========================================================
-   FILE OPERATIONS (REST + SOCKET BROADCAST)
+   FILE OPERATIONS (REST → SOCKET SERVER)
    ========================================================= */
 
+async function notifySocketServer(roomId, projectId, files) {
+  try {
+    await fetch(`${SOCKET_SERVER_URL}/internal/files-updated`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roomId,
+        projectId,
+        files,
+      }),
+    });
+  } catch (err) {
+    console.error("SocketServer notify failed:", err.message);
+  }
+}
+
 /**
- * POST /projects/:projectId/files
- * body: { path, content?, roomId }
+ * CREATE FILE
  */
 exports.createFile = async (req, res) => {
   try {
@@ -165,13 +188,8 @@ exports.createFile = async (req, res) => {
       return res.status(400).json({ error: "path and roomId required" });
     }
 
-    const [project, room] = await Promise.all([
-      Project.findById(projectId),
-      Room.findById(roomId),
-    ]);
-
+    const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ error: "Project not found" });
-    if (!room) return res.status(404).json({ error: "Room not found" });
 
     if (project.files.some((f) => f.path === path)) {
       return res.status(409).json({ error: "File already exists" });
@@ -186,14 +204,7 @@ exports.createFile = async (req, res) => {
 
     await project.save();
 
-    const io = req.app.get("io");
-    if (io) {
-      io.to(String(roomId)).emit("files:updated", {
-        roomId,
-        projectId,
-        files: project.files,
-      });
-    }
+    await notifySocketServer(roomId, projectId, project.files);
 
     res.json({ success: true, files: project.files });
   } catch (err) {
@@ -203,8 +214,7 @@ exports.createFile = async (req, res) => {
 };
 
 /**
- * PUT /projects/:projectId/files/rename
- * body: { oldPath, newPath, roomId }
+ * RENAME FILE
  */
 exports.renameFile = async (req, res) => {
   try {
@@ -212,9 +222,9 @@ exports.renameFile = async (req, res) => {
     const { oldPath, newPath, roomId } = req.body;
 
     if (!oldPath || !newPath || !roomId) {
-      return res
-        .status(400)
-        .json({ error: "oldPath, newPath and roomId required" });
+      return res.status(400).json({
+        error: "oldPath, newPath and roomId required",
+      });
     }
 
     const normalize = (p = "") =>
@@ -223,13 +233,8 @@ exports.renameFile = async (req, res) => {
     const oldNorm = normalize(oldPath);
     const newNorm = normalize(newPath);
 
-    const [project, room] = await Promise.all([
-      Project.findById(projectId),
-      Room.findById(roomId),
-    ]);
-
+    const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ error: "Project not found" });
-    if (!room) return res.status(404).json({ error: "Room not found" });
 
     const index = project.files.findIndex(
       (f) => normalize(f.path) === oldNorm
@@ -248,14 +253,7 @@ exports.renameFile = async (req, res) => {
 
     await project.save();
 
-    const io = req.app.get("io");
-    if (io) {
-      io.to(String(roomId)).emit("files:updated", {
-        roomId,
-        projectId,
-        files: project.files,
-      });
-    }
+    await notifySocketServer(roomId, projectId, project.files);
 
     res.json({ success: true, files: project.files });
   } catch (err) {
@@ -264,10 +262,8 @@ exports.renameFile = async (req, res) => {
   }
 };
 
-
 /**
- * DELETE /projects/:projectId/files
- * body: { path, roomId }
+ * DELETE FILE / FOLDER
  */
 exports.deleteFile = async (req, res) => {
   try {
@@ -278,13 +274,8 @@ exports.deleteFile = async (req, res) => {
       return res.status(400).json({ error: "path and roomId required" });
     }
 
-    const [project, room] = await Promise.all([
-      Project.findById(projectId),
-      Room.findById(roomId),
-    ]);
-
+    const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ error: "Project not found" });
-    if (!room) return res.status(404).json({ error: "Room not found" });
 
     project.files = project.files.filter(
       (f) => f.path !== path && !f.path.startsWith(path + "/")
@@ -292,14 +283,7 @@ exports.deleteFile = async (req, res) => {
 
     await project.save();
 
-    const io = req.app.get("io");
-    if (io) {
-      io.to(String(roomId)).emit("files:updated", {
-        roomId,
-        projectId,
-        files: project.files,
-      });
-    }
+    await notifySocketServer(roomId, projectId, project.files);
 
     res.json({ success: true, files: project.files });
   } catch (err) {
