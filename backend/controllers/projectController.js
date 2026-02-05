@@ -1,7 +1,6 @@
 const Project = require("../models/Project");
 const Room = require("../models/Room");
 
-
 /* =========================
    SOCKET SERVER CONFIG
    ========================= */
@@ -35,7 +34,6 @@ exports.createProject = async (req, res) => {
         room.currentView = "editor";
         await room.save();
 
-        // 🔔 Project activation stays on main server socket
         const io = req.app.get("io");
         if (io) {
           io.to(String(room._id)).emit("project:activated", {
@@ -203,7 +201,6 @@ exports.createFile = async (req, res) => {
     });
 
     await project.save();
-
     await notifySocketServer(roomId, projectId, project.files);
 
     res.json({ success: true, files: project.files });
@@ -252,7 +249,6 @@ exports.renameFile = async (req, res) => {
     };
 
     await project.save();
-
     await notifySocketServer(roomId, projectId, project.files);
 
     res.json({ success: true, files: project.files });
@@ -282,12 +278,55 @@ exports.deleteFile = async (req, res) => {
     );
 
     await project.save();
-
     await notifySocketServer(roomId, projectId, project.files);
 
     res.json({ success: true, files: project.files });
   } catch (err) {
     console.error("Delete error:", err);
     res.status(500).json({ error: "Failed to delete" });
+  }
+};
+
+/* =========================================================
+   🆕 SAVE FILE CONTENT (CTRL+S)
+   ========================================================= */
+
+exports.saveFileContent = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { path, content } = req.body;
+
+    if (!path) {
+      return res.status(400).json({ error: "path is required" });
+    }
+
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const normalize = (p = "") =>
+      p.replace(/^\/+/, "").replace(/^\.\/+/, "");
+
+    const normalizedPath = normalize(path);
+
+    const file = project.files.find(
+      (f) => normalize(f.path) === normalizedPath
+    );
+
+    if (!file) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    file.content = content ?? "";
+    file.updatedAt = new Date();
+    file.lastEditedBy = req.user.id;
+
+    await project.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Save file content error:", err);
+    res.status(500).json({ error: "Failed to save file" });
   }
 };

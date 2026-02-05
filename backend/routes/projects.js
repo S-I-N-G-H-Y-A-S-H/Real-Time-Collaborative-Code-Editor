@@ -11,6 +11,7 @@ const {
   createFile,
   renameFile,
   deleteFile,
+  saveFileContent,
 } = require("../controllers/projectController");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -61,6 +62,17 @@ router.put(
   "/:projectId/files/rename",
   authMiddleware,
   renameFile
+);
+
+/**
+ * PUT /projects/:projectId/files/content
+ * Save file content (Ctrl + S)
+ * body: { path, content }
+ */
+router.put(
+  "/:projectId/files/content",
+  authMiddleware,
+  saveFileContent
 );
 
 /**

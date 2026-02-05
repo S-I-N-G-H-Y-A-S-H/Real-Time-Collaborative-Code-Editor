@@ -181,8 +181,13 @@ function EditorPage() {
 
       if (modKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        if (currentFile) saveFile(currentFile);
+        if (isCollaborative && projectCtx.activeFilePath) {
+          projectCtx.saveFile(projectCtx.activeFilePath);
+        } else if (!isCollaborative && currentFile) {
+          fileCtx.saveFile(currentFile);
+        }
       }
+
 
       if (e.ctrlKey && e.key === "F5") {
         e.preventDefault();

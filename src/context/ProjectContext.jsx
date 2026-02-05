@@ -302,6 +302,45 @@ export function ProjectProvider({ children }) {
     }
   }
 
+    /* =========================
+     💾 SAVE FILE (CTRL + S)
+     ========================= */
+
+  async function saveFile(path) {
+    if (!project.id || !roomId || !path) return;
+
+    const normalized = normalizePath(path);
+    const file = filesByPath[normalized];
+    if (!file) return;
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/projects/${project.id}/files/content`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({
+            path: normalized,
+            content: file.content,
+            roomId,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Save failed");
+      }
+    } catch (err) {
+      console.error("saveFile error:", err);
+    }
+  }
+
+
+
   async function createFile(path) {
     if (!project.id || !roomId) return;
 
@@ -486,6 +525,7 @@ export function ProjectProvider({ children }) {
         loadProject,
         openFile,
         updateFileContent,
+        saveFile,
 
         createFile,
         renameItem,
