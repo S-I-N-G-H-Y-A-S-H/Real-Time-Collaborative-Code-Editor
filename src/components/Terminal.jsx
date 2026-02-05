@@ -17,7 +17,15 @@ function TerminalComponent({ refExecute, refReset }) {
 
   const { currentFile } = useFile();
 
+  /* =========================
+     BASIC PRINT HELPERS
+     ========================= */
+
   const printLine = (text = "") => {
+    xterm.current?.writeln(text);
+  };
+
+  const printRaw = (text = "") => {
     xterm.current?.writeln(text);
   };
 
@@ -28,6 +36,10 @@ function TerminalComponent({ refExecute, refReset }) {
       xterm.current.write(">");
     }
   };
+
+  /* =========================
+     EXECUTION (REAL FILE RUN)
+     ========================= */
 
   const executeFile = async (filename, source) => {
     const langInfo = getLanguageFromFilename(filename);
@@ -46,12 +58,14 @@ function TerminalComponent({ refExecute, refReset }) {
         printLine(`Error: ${result.error}`);
         return;
       }
+
       if (result.compileError) {
         printLine("Compilation Error:");
         if (result.stderr) printLine(result.stderr);
         if (result.stdout) printLine(result.stdout);
         return;
       }
+
       if (result.timedOut) {
         printLine("Execution timed out.");
       }
@@ -59,18 +73,14 @@ function TerminalComponent({ refExecute, refReset }) {
       if (result.stdout) {
         printLine("Output:");
         result.stdout.split(/\r?\n/).forEach((line) => {
-          if (line.trim().length > 0) {
-            printLine(line);
-          }
+          if (line.trim()) printLine(line);
         });
       }
 
       if (result.stderr) {
         printLine("Errors:");
         result.stderr.split(/\r?\n/).forEach((line) => {
-          if (line.trim().length > 0) {
-            printLine(line);
-          }
+          if (line.trim()) printLine(line);
         });
       }
 
@@ -82,7 +92,10 @@ function TerminalComponent({ refExecute, refReset }) {
     }
   };
 
-  // Expose functions
+  /* =========================
+     EXPOSE APIs
+     ========================= */
+
   useEffect(() => {
     if (typeof refExecute === "function") {
       refExecute(executeFile);
@@ -91,10 +104,15 @@ function TerminalComponent({ refExecute, refReset }) {
       refReset(clearTerminal);
     }
 
-    // Expose globally
+    // 🔑 GLOBAL TERMINAL APIS (IMPORTANT)
     window.__executeFile = executeFile;
     window.__resetTerminal = clearTerminal;
+    window.__terminalPrint = printRaw;
   }, [refExecute, refReset]);
+
+  /* =========================
+     TERMINAL INIT
+     ========================= */
 
   useEffect(() => {
     const initTerminal = () => {
@@ -117,7 +135,6 @@ function TerminalComponent({ refExecute, refReset }) {
       fitAddon.current.fit();
 
       xterm.current.focus();
-
       xterm.current.writeln("Welcome to the terminal!");
       xterm.current.write(">");
 
@@ -125,7 +142,6 @@ function TerminalComponent({ refExecute, refReset }) {
         const char = data.charCodeAt(0);
 
         if (char === 13) {
-          // ENTER
           const command = inputBuffer.current.trim();
           xterm.current.write("\r\n");
 
@@ -136,7 +152,10 @@ function TerminalComponent({ refExecute, refReset }) {
             command.startsWith("javac")
           ) {
             if (currentFile) {
-              executeFile(currentFile.fileName, currentFile.fileContent);
+              executeFile(
+                currentFile.fileName,
+                currentFile.fileContent
+              );
             } else {
               printLine("No active file open.");
             }
@@ -147,7 +166,6 @@ function TerminalComponent({ refExecute, refReset }) {
           inputBuffer.current = "";
           xterm.current.write(">");
         } else if (char === 127) {
-          // BACKSPACE
           if (inputBuffer.current.length > 0) {
             inputBuffer.current = inputBuffer.current.slice(0, -1);
             xterm.current.write("\b \b");

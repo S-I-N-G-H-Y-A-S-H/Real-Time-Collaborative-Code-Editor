@@ -9,7 +9,7 @@ import { useSidebar } from "../context/SidebarContext";
 import { useEditor } from "../context/EditorContext";
 import { useRoomSync } from "../context/RoomSyncContext";
 
-import socketService from "../services/socketService"; // ✅ NEW
+import socketService from "../services/socketService";
 
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
@@ -70,7 +70,6 @@ function EditorPage() {
   const terminalExecuteRef = useRef(null);
   const terminalResetRef = useRef(null);
 
-  // ✅ Prevent infinite echo
   const isApplyingRemoteChange = useRef(false);
 
   /* =========================
@@ -108,9 +107,8 @@ function EditorPage() {
       if (
         !editorRef.current ||
         filePath !== projectCtx.activeFilePath
-      ) {
+      )
         return;
-      }
 
       isApplyingRemoteChange.current = true;
 
@@ -130,9 +128,69 @@ function EditorPage() {
     socketService.onEditorContentUpdate(handleRemoteEdit);
 
     return () => {
-      socketService.offEditorContentUpdate(handleRemoteEdit);
+      socketService.offEditorContentUpdate();
     };
   }, [isCollaborative, projectCtx.activeFilePath]);
+
+  /* =========================
+     🆕 EXECUTION OUTPUT SYNC
+     ========================= */
+
+  useEffect(() => {
+    if (!isCollaborative) return;
+
+    const handleExecutionOutput = (data) => {
+      if (!terminalExecuteRef.current) return;
+
+      if (!showTerminal) {
+        setShowTerminal(true);
+      }
+
+       if (data.type === "status") {
+        window.__terminalPrint?.(data.message);
+      }
+
+      if (data.type === "result") {
+        const result = data.payload;
+
+        if (result.compileError) {
+          window.__terminalPrint?.("Compilation Error:");
+        }
+
+        if (result.stdout) {
+          result.stdout
+            .split(/\r?\n/)
+            .forEach((line) => line && window.__terminalPrint?.(line));
+        }
+
+        if (result.stderr) {
+          result.stderr
+            .split(/\r?\n/)
+            .forEach((line) => line && window.__terminalPrint?.(line));
+        }
+
+        if (!result.stdout && !result.stderr) {
+          window.__terminalPrint?.("[No output]");
+        }
+      }
+
+      if (data.type === "error") {
+        window.__terminalPrint?.(`Error: ${data.message}`);
+      }
+    };
+
+    socketService.socket?.on(
+      "execution:output",
+      handleExecutionOutput
+    );
+
+    return () => {
+      socketService.socket?.off(
+        "execution:output",
+        handleExecutionOutput
+      );
+    };
+  }, [isCollaborative, currentFile, showTerminal]);
 
   /* =========================
      TERMINAL ACTIONS
@@ -143,12 +201,14 @@ function EditorPage() {
 
     if (!showTerminal) {
       setShowTerminal(true);
-      setTimeout(() => {
-        terminalExecuteRef.current?.(
-          currentFile.fileName,
-          currentFile.fileContent
-        );
-      }, 200);
+    }
+
+    if (isCollaborative) {
+      socketService.socket?.emit("execution:run", {
+        roomId,
+        fileName: currentFile.fileName,
+        code: currentFile.fileContent,
+      });
     } else {
       terminalExecuteRef.current?.(
         currentFile.fileName,
@@ -178,7 +238,6 @@ function EditorPage() {
         e.preventDefault();
         setShowTerminal((prev) => !prev);
       }
-
       if (modKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         if (isCollaborative && projectCtx.activeFilePath) {
@@ -187,7 +246,6 @@ function EditorPage() {
           fileCtx.saveFile(currentFile);
         }
       }
-
 
       if (e.ctrlKey && e.key === "F5") {
         e.preventDefault();
@@ -206,7 +264,7 @@ function EditorPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentFile, saveFile]);
+  }, [currentFile, isCollaborative]);
 
   /* =========================
      EDITOR CHANGE (LOCAL → SOCKET)
@@ -238,30 +296,12 @@ function EditorPage() {
         );
       }
     },
-    [
-      currentFile,
-      isCollaborative,
-      projectCtx,
-      fileCtx,
-      roomId,
-    ]
+    [currentFile, isCollaborative, projectCtx, fileCtx, roomId]
   );
 
   const monacoLanguage = currentFile?.fileName
     ? getLangInfo(currentFile.fileName).monacoLang
     : "plaintext";
-
-  /* =========================
-     SEARCH
-     ========================= */
-
-  const handleSearchClick = () => {
-    editorRef.current?.focus();
-    editorRef.current?.trigger(
-      "source",
-      "editor.action.quickCommand"
-    );
-  };
 
   /* =========================
      RENDER
@@ -273,7 +313,6 @@ function EditorPage() {
         onRunCode={runCurrentFile}
         onNewTerminal={newTerminal}
         onToggleTerminal={() => setShowTerminal((p) => !p)}
-        onSearchClick={handleSearchClick}
       />
 
       <div className="body-layout">
@@ -300,14 +339,14 @@ function EditorPage() {
                     language={monacoLanguage}
                     value={code}
                     onChange={handleEditorChange}
+                    onMount={(editorInstance) => {
+                      setEditor(editorInstance);
+                      editorRef.current = editorInstance;
+                    }}
                     options={{
                       fontSize: 14,
                       minimap: { enabled: false },
                       scrollBeyondLastLine: false,
-                    }}
-                    onMount={(editorInstance) => {
-                      setEditor(editorInstance);
-                      editorRef.current = editorInstance;
                     }}
                   />
                 </div>
@@ -339,4 +378,3 @@ function EditorPage() {
 }
 
 export default EditorPage;
-  

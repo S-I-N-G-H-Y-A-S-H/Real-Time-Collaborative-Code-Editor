@@ -3,6 +3,7 @@ require("dotenv").config();
 const http = require("http");
 const mongoose = require("mongoose");
 const express = require("express");
+const axios = require("axios");
 const { Server } = require("socket.io");
 
 const Room = require("./models/Room");
@@ -11,6 +12,10 @@ const TokenManager = require("./utils/TokenManager");
 
 const PORT = process.env.PORT_SOCKET || 5001;
 const MONGO_URI = process.env.MONGO_URI;
+
+// ✅ exec-server (LOCAL execution only)
+const EXEC_SERVER_URL =
+  process.env.EXEC_SERVER_URL || "http://localhost:3000";
 
 if (!MONGO_URI) {
   console.error("FATAL: MONGO_URI is not set");
@@ -66,7 +71,7 @@ async function broadcastParticipants(roomId) {
 }
 
 /* =========================================================
-   🔥 INTERNAL FILE SYNC ENDPOINT
+   INTERNAL FILE SYNC ENDPOINT
    ========================================================= */
 
 app.post("/internal/files-updated", (req, res) => {
@@ -113,7 +118,9 @@ io.on("connection", (socket) => {
       ]);
 
       if (!room || !user) {
-        socket.emit("join-error", { message: "Room/User not found" });
+        socket.emit("join-error", {
+          message: "Room/User not found",
+        });
         return;
       }
 
@@ -204,14 +211,13 @@ io.on("connection", (socket) => {
   });
 
   /* =========================================================
-     🆕 REALTIME EDITOR SYNC
+     REALTIME EDITOR SYNC
      ========================================================= */
   socket.on(
     "editor:content-change",
     ({ roomId, filePath, content }) => {
       if (!roomId || !filePath) return;
 
-      // Broadcast to everyone EXCEPT sender
       socket.to(String(roomId)).emit("editor:content-update", {
         roomId,
         filePath,
@@ -221,13 +227,78 @@ io.on("connection", (socket) => {
     }
   );
 
+  /* =========================================================
+     ✅ CODE EXECUTION SYNC (EXEC-SERVER)
+     ========================================================= */
+  socket.on(
+    "execution:run",
+    async ({ roomId, fileName, code }) => {
+      if (!roomId || !fileName || !code) return;
+
+      try {
+        // Broadcast running status
+        io.to(String(roomId)).emit("execution:output", {
+          type: "status",
+          message: `▶ Running ${fileName}...`,
+        });
+
+        // 🔑 Resolve language from extension
+        const ext = fileName.split(".").pop().toLowerCase();
+
+        const languageMap = {
+          js: "javascript",
+          py: "python",
+          cpp: "cpp",
+          c: "cpp",
+          java: "java",
+        };
+
+        const language = languageMap[ext];
+
+        if (!language) {
+          io.to(String(roomId)).emit("execution:output", {
+            type: "error",
+            message: `Unsupported file type: .${ext}`,
+          });
+          return;
+        }
+
+        // 🔥 Call exec-server
+        const res = await axios.post(
+          `${EXEC_SERVER_URL}/run`,
+          {
+            language,
+            code,
+            stdin: "",
+          },
+          { timeout: 15000 }
+        );
+
+        io.to(String(roomId)).emit("execution:output", {
+          type: "result",
+          payload: res.data,
+        });
+      } catch (err) {
+        io.to(String(roomId)).emit("execution:output", {
+          type: "error",
+          message:
+            err.response?.data?.error ||
+            err.message ||
+            "Execution failed",
+        });
+      }
+    }
+  );
+
   /* ---------- LEAVE / DISCONNECT ---------- */
   socket.on("leave-room", async () => {
     await handleDisconnect(socket);
   });
 
   socket.on("disconnect", async (reason) => {
-    console.log(`❌ socket disconnected ${socket.id} (${reason})`);
+    console.log(
+      `❌ socket disconnected ${socket.id} (${reason})`
+    );
     await handleDisconnect(socket);
   });
 });
@@ -277,7 +348,10 @@ async function connectWithRetry(uri, maxRetries = 20) {
     } catch (err) {
       attempt++;
       const delay = 1000 * attempt;
-      console.error(`Mongo retry ${attempt}/${maxRetries}`, err.message);
+      console.error(
+        `Mongo retry ${attempt}/${maxRetries}`,
+        err.message
+      );
       await new Promise((res) => setTimeout(res, delay));
     }
   }

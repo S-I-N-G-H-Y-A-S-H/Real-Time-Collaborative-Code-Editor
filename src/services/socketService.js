@@ -15,8 +15,11 @@ class SocketService {
     this.projectActivatedHandler = null;
     this.filesUpdatedHandler = null;
 
-    // 🆕 EDITOR SYNC HANDLERS
+    // editor sync
     this.editorContentHandler = null;
+
+    // 🆕 execution sync
+    this.executionOutputHandler = null;
   }
 
   /* =========================
@@ -100,10 +103,7 @@ class SocketService {
   syncView({ roomId, page }) {
     if (!this.socket || !roomId || !page) return;
 
-    this.socket.emit("sync-view", {
-      roomId,
-      page,
-    });
+    this.socket.emit("sync-view", { roomId, page });
   }
 
   onViewSynced(callback) {
@@ -157,7 +157,7 @@ class SocketService {
   }
 
   /* =========================
-     FILE SYNC (CREATE / RENAME / DELETE)
+     FILE SYNC
      ========================= */
 
   onFilesUpdated(callback) {
@@ -181,7 +181,7 @@ class SocketService {
   }
 
   /* =========================
-     🆕 EDITOR REALTIME SYNC
+     EDITOR REALTIME SYNC
      ========================= */
 
   emitEditorContentChange({ roomId, filePath, content }) {
@@ -207,10 +207,7 @@ class SocketService {
     }
 
     this.editorContentHandler = callback;
-    this.socket.on(
-      "editor:content-update",
-      callback
-    );
+    this.socket.on("editor:content-update", callback);
   }
 
   offEditorContentUpdate() {
@@ -221,6 +218,46 @@ class SocketService {
       this.editorContentHandler
     );
     this.editorContentHandler = null;
+  }
+
+  /* =========================
+     🆕 EXECUTION SYNC
+     ========================= */
+
+  emitExecutionRun({ roomId, fileName, code }) {
+    if (!this.socket || !roomId || !fileName) return;
+
+    this.socket.emit("execution:run", {
+      roomId,
+      fileName,
+      code,
+    });
+  }
+
+  onExecutionOutput(callback) {
+    if (!callback) return;
+
+    this.connect();
+
+    if (this.executionOutputHandler) {
+      this.socket.off(
+        "execution:output",
+        this.executionOutputHandler
+      );
+    }
+
+    this.executionOutputHandler = callback;
+    this.socket.on("execution:output", callback);
+  }
+
+  offExecutionOutput() {
+    if (!this.socket || !this.executionOutputHandler) return;
+
+    this.socket.off(
+      "execution:output",
+      this.executionOutputHandler
+    );
+    this.executionOutputHandler = null;
   }
 
   /* =========================
@@ -241,6 +278,7 @@ class SocketService {
     this.projectActivatedHandler = null;
     this.filesUpdatedHandler = null;
     this.editorContentHandler = null;
+    this.executionOutputHandler = null;
   }
 }
 
