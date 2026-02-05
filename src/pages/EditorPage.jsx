@@ -72,13 +72,16 @@ function EditorPage() {
 
   const isApplyingRemoteChange = useRef(false);
 
+  // 🧠 execution buffering (FIX)
+  const terminalReadyRef = useRef(false);
+  const pendingExecutionBuffer = useRef([]);
+
   /* =========================
-     VIEW GUARD (COLLAB ONLY)
+     VIEW GUARD
      ========================= */
 
   useEffect(() => {
     if (!isCollaborative) return;
-
     if (currentView !== "editor") {
       navigate("/welcome", { replace: true });
     }
@@ -89,36 +92,25 @@ function EditorPage() {
      ========================= */
 
   useEffect(() => {
-    if (currentFile) {
-      setCode(currentFile.fileContent ?? "");
-    } else {
-      setCode("");
-    }
+    setCode(currentFile?.fileContent ?? "");
   }, [currentFile]);
 
   /* =========================
-     REALTIME: RECEIVE REMOTE EDITS
+     REALTIME EDITOR SYNC
      ========================= */
 
   useEffect(() => {
     if (!isCollaborative) return;
 
     const handleRemoteEdit = ({ filePath, content }) => {
-      if (
-        !editorRef.current ||
-        filePath !== projectCtx.activeFilePath
-      )
-        return;
+      if (!editorRef.current || filePath !== projectCtx.activeFilePath) return;
 
       isApplyingRemoteChange.current = true;
-
       const model = editorRef.current.getModel();
+
       if (model) {
         editorRef.current.executeEdits("remote-edit", [
-          {
-            range: model.getFullModelRange(),
-            text: content,
-          },
+          { range: model.getFullModelRange(), text: content },
         ]);
       }
 
@@ -126,71 +118,73 @@ function EditorPage() {
     };
 
     socketService.onEditorContentUpdate(handleRemoteEdit);
-
-    return () => {
-      socketService.offEditorContentUpdate();
-    };
+    return () => socketService.offEditorContentUpdate();
   }, [isCollaborative, projectCtx.activeFilePath]);
 
   /* =========================
-     🆕 EXECUTION OUTPUT SYNC
+     EXECUTION OUTPUT SYNC (FIXED)
      ========================= */
 
   useEffect(() => {
     if (!isCollaborative) return;
 
     const handleExecutionOutput = (data) => {
-      if (!terminalExecuteRef.current) return;
+      // ensure terminal opens
+      if (!showTerminal) setShowTerminal(true);
 
-      if (!showTerminal) {
-        setShowTerminal(true);
-      }
+      const push = (line) => {
+        if (terminalReadyRef.current && window.__terminalPrint) {
+          window.__terminalPrint(line);
+        } else {
+          pendingExecutionBuffer.current.push(line);
+        }
+      };
 
-       if (data.type === "status") {
-        window.__terminalPrint?.(data.message);
+      if (data.type === "status") {
+        push(data.message);
       }
 
       if (data.type === "result") {
-        const result = data.payload;
+        const { stdout, stderr, compileError } = data.payload;
 
-        if (result.compileError) {
-          window.__terminalPrint?.("Compilation Error:");
-        }
+        if (compileError) push("Compilation Error:");
 
-        if (result.stdout) {
-          result.stdout
-            .split(/\r?\n/)
-            .forEach((line) => line && window.__terminalPrint?.(line));
-        }
+        stdout?.split(/\r?\n/).forEach((l) => l && push(l));
+        stderr?.split(/\r?\n/).forEach((l) => l && push(l));
 
-        if (result.stderr) {
-          result.stderr
-            .split(/\r?\n/)
-            .forEach((line) => line && window.__terminalPrint?.(line));
-        }
-
-        if (!result.stdout && !result.stderr) {
-          window.__terminalPrint?.("[No output]");
-        }
+        if (!stdout && !stderr) push("[No output]");
       }
 
       if (data.type === "error") {
-        window.__terminalPrint?.(`Error: ${data.message}`);
+        push(`Error: ${data.message}`);
       }
     };
 
-    socketService.socket?.on(
-      "execution:output",
-      handleExecutionOutput
-    );
+    socketService.socket?.on("execution:output", handleExecutionOutput);
+    return () =>
+      socketService.socket?.off("execution:output", handleExecutionOutput);
+  }, [isCollaborative, showTerminal]);
 
-    return () => {
-      socketService.socket?.off(
-        "execution:output",
-        handleExecutionOutput
-      );
-    };
-  }, [isCollaborative, currentFile, showTerminal]);
+  /* =========================
+     FLUSH BUFFER WHEN TERMINAL MOUNTS
+     ========================= */
+
+  useEffect(() => {
+    if (!showTerminal) return;
+
+    const interval = setInterval(() => {
+      if (window.__terminalPrint) {
+        terminalReadyRef.current = true;
+        pendingExecutionBuffer.current.forEach((l) =>
+          window.__terminalPrint(l)
+        );
+        pendingExecutionBuffer.current = [];
+        clearInterval(interval);
+      }
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [showTerminal]);
 
   /* =========================
      TERMINAL ACTIONS
@@ -198,10 +192,7 @@ function EditorPage() {
 
   const runCurrentFile = () => {
     if (!currentFile) return;
-
-    if (!showTerminal) {
-      setShowTerminal(true);
-    }
+    setShowTerminal(true);
 
     if (isCollaborative) {
       socketService.socket?.emit("execution:run", {
@@ -218,11 +209,8 @@ function EditorPage() {
   };
 
   const newTerminal = () => {
-    if (!showTerminal) {
-      setShowTerminal(true);
-    } else {
-      terminalResetRef.current?.();
-    }
+    if (!showTerminal) setShowTerminal(true);
+    else terminalResetRef.current?.();
   };
 
   /* =========================
@@ -236,29 +224,19 @@ function EditorPage() {
 
       if (modKey && e.key === "`") {
         e.preventDefault();
-        setShowTerminal((prev) => !prev);
+        setShowTerminal((p) => !p);
       }
+
       if (modKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        if (isCollaborative && projectCtx.activeFilePath) {
+        if (isCollaborative && projectCtx.activeFilePath)
           projectCtx.saveFile(projectCtx.activeFilePath);
-        } else if (!isCollaborative && currentFile) {
-          fileCtx.saveFile(currentFile);
-        }
+        else if (currentFile) fileCtx.saveFile(currentFile);
       }
 
       if (e.ctrlKey && e.key === "F5") {
         e.preventDefault();
         runCurrentFile();
-      }
-
-      if (modKey && e.shiftKey && e.key.toLowerCase() === "p") {
-        e.preventDefault();
-        editorRef.current?.focus();
-        editorRef.current?.trigger(
-          "source",
-          "editor.action.quickCommand"
-        );
       }
     };
 
@@ -267,13 +245,12 @@ function EditorPage() {
   }, [currentFile, isCollaborative]);
 
   /* =========================
-     EDITOR CHANGE (LOCAL → SOCKET)
+     EDITOR CHANGE
      ========================= */
 
   const handleEditorChange = useCallback(
     (newCode) => {
       if (!currentFile) return;
-
       setCode(newCode ?? "");
 
       if (isCollaborative) {
@@ -290,10 +267,7 @@ function EditorPage() {
           content: newCode ?? "",
         });
       } else {
-        fileCtx.updateFileContent(
-          currentFile.fileHandle,
-          newCode ?? ""
-        );
+        fileCtx.updateFileContent(currentFile.fileHandle, newCode ?? "");
       }
     },
     [currentFile, isCollaborative, projectCtx, fileCtx, roomId]
@@ -324,7 +298,6 @@ function EditorPage() {
             {currentFile?.fileName ? (
               <>
                 <Tabs />
-
                 <div
                   className="code-section"
                   style={{
@@ -339,9 +312,9 @@ function EditorPage() {
                     language={monacoLanguage}
                     value={code}
                     onChange={handleEditorChange}
-                    onMount={(editorInstance) => {
-                      setEditor(editorInstance);
-                      editorRef.current = editorInstance;
+                    onMount={(e) => {
+                      setEditor(e);
+                      editorRef.current = e;
                     }}
                     options={{
                       fontSize: 14,
