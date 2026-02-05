@@ -5,8 +5,10 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
 } from "react";
 import { useRoomSync } from "./RoomSyncContext";
+import socketService from "../services/socketService";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE || "http://localhost:5000";
@@ -48,6 +50,12 @@ export function ProjectProvider({ children }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  /* =========================
+     🔁 SOCKET META
+     ========================= */
+
+  const selfSocketIdRef = useRef(null);
 
   /* =========================
      HELPERS
@@ -216,14 +224,13 @@ export function ProjectProvider({ children }) {
   }, [roomId, activeProjectId]);
 
   /* =========================================================
-     🔁 REALTIME FILE SYNC (FROM SOCKET SERVER)
+     🔁 FILE STRUCTURE SYNC (CREATE / RENAME / DELETE)
      ========================================================= */
 
   useEffect(() => {
     if (!filesUpdate || filesUpdate.projectId !== project.id) return;
 
     const filesMap = normalizeFiles(filesUpdate.files);
-
     setFilesByPath(filesMap);
     rebuildTree(filesMap);
 
@@ -235,6 +242,40 @@ export function ProjectProvider({ children }) {
     }
   }, [filesUpdate]);
 
+  /* =========================================================
+     🆕 REALTIME EDITOR CONTENT SYNC
+     ========================================================= */
+
+  useEffect(() => {
+    socketService.connect();
+
+    selfSocketIdRef.current = socketService.socket?.id;
+
+    socketService.socket?.on(
+      "editor:content-update",
+      ({ filePath, content, from }) => {
+        if (!filePath || from === selfSocketIdRef.current) return;
+
+        const normalized = normalizePath(filePath);
+
+        setFilesByPath((prev) => {
+          if (!prev[normalized]) return prev;
+          return {
+            ...prev,
+            [normalized]: {
+              ...prev[normalized],
+              content,
+            },
+          };
+        });
+      }
+    );
+
+    return () => {
+      socketService.socket?.off("editor:content-update");
+    };
+  }, []);
+
   /* =========================
      FILE ACTIONS
      ========================= */
@@ -245,10 +286,20 @@ export function ProjectProvider({ children }) {
 
   function updateFileContent(path, content) {
     const normalized = normalizePath(path);
+
     setFilesByPath((prev) => ({
       ...prev,
       [normalized]: { ...prev[normalized], content },
     }));
+
+    if (roomId && project.id) {
+      socketService.socket?.emit("editor:content-change", {
+        roomId,
+        projectId: project.id,
+        filePath: normalized,
+        content,
+      });
+    }
   }
 
   async function createFile(path) {
@@ -365,8 +416,7 @@ export function ProjectProvider({ children }) {
       console.error("delete error:", err);
     }
   }
-
-  /* =========================
+    /* =========================
      🧠 VIRTUAL FOLDER ACTIONS
      ========================= */
 

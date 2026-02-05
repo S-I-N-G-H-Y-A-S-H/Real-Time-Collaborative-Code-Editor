@@ -9,6 +9,8 @@ import { useSidebar } from "../context/SidebarContext";
 import { useEditor } from "../context/EditorContext";
 import { useRoomSync } from "../context/RoomSyncContext";
 
+import socketService from "../services/socketService"; // ✅ NEW
+
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import SidebarPanel from "../components/SidebarPanel";
@@ -34,13 +36,9 @@ function EditorPage() {
      CONTEXTS
      ========================= */
 
-  // Local (single-user)
   const fileCtx = useFile();
-
-  // Collaborative
   const projectCtx = useProject();
 
-  // Shared
   const { isVisible } = useSidebar();
   const { setEditor } = useEditor();
 
@@ -57,12 +55,8 @@ function EditorPage() {
       }
     : fileCtx.currentFile;
 
-  const updateFileContent = isCollaborative
-    ? projectCtx.updateFileContent
-    : fileCtx.updateFileContent;
-
   const saveFile = isCollaborative
-    ? () => projectCtx.saveFile(projectCtx.activeFilePath)
+    ? () => projectCtx.saveFile?.(projectCtx.activeFilePath)
     : fileCtx.saveFile;
 
   /* =========================
@@ -75,6 +69,9 @@ function EditorPage() {
   const editorRef = useRef(null);
   const terminalExecuteRef = useRef(null);
   const terminalResetRef = useRef(null);
+
+  // ✅ Prevent infinite echo
+  const isApplyingRemoteChange = useRef(false);
 
   /* =========================
      VIEW GUARD (COLLAB ONLY)
@@ -99,6 +96,43 @@ function EditorPage() {
       setCode("");
     }
   }, [currentFile]);
+
+  /* =========================
+     REALTIME: RECEIVE REMOTE EDITS
+     ========================= */
+
+  useEffect(() => {
+    if (!isCollaborative) return;
+
+    const handleRemoteEdit = ({ filePath, content }) => {
+      if (
+        !editorRef.current ||
+        filePath !== projectCtx.activeFilePath
+      ) {
+        return;
+      }
+
+      isApplyingRemoteChange.current = true;
+
+      const model = editorRef.current.getModel();
+      if (model) {
+        editorRef.current.executeEdits("remote-edit", [
+          {
+            range: model.getFullModelRange(),
+            text: content,
+          },
+        ]);
+      }
+
+      isApplyingRemoteChange.current = false;
+    };
+
+    socketService.onEditorContentUpdate(handleRemoteEdit);
+
+    return () => {
+      socketService.offEditorContentUpdate(handleRemoteEdit);
+    };
+  }, [isCollaborative, projectCtx.activeFilePath]);
 
   /* =========================
      TERMINAL ACTIONS
@@ -140,28 +174,21 @@ function EditorPage() {
       const isMac = navigator.platform.toUpperCase().includes("MAC");
       const modKey = isMac ? e.metaKey : e.ctrlKey;
 
-      // Toggle terminal (Ctrl+`)
       if (modKey && e.key === "`") {
         e.preventDefault();
         setShowTerminal((prev) => !prev);
-        return;
       }
 
-      // Save (Ctrl+S)
       if (modKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         if (currentFile) saveFile(currentFile);
-        return;
       }
 
-      // Run (Ctrl+F5)
       if (e.ctrlKey && e.key === "F5") {
         e.preventDefault();
         runCurrentFile();
-        return;
       }
 
-      // Command Palette (Ctrl+Shift+P)
       if (modKey && e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         editorRef.current?.focus();
@@ -177,20 +204,28 @@ function EditorPage() {
   }, [currentFile, saveFile]);
 
   /* =========================
-     EDITOR CHANGE
+     EDITOR CHANGE (LOCAL → SOCKET)
      ========================= */
 
   const handleEditorChange = useCallback(
     (newCode) => {
-      setCode(newCode ?? "");
-
       if (!currentFile) return;
 
+      setCode(newCode ?? "");
+
       if (isCollaborative) {
+        if (isApplyingRemoteChange.current) return;
+
         projectCtx.updateFileContent(
           projectCtx.activeFilePath,
           newCode ?? ""
         );
+
+        socketService.emitEditorContentChange({
+          roomId,
+          filePath: projectCtx.activeFilePath,
+          content: newCode ?? "",
+        });
       } else {
         fileCtx.updateFileContent(
           currentFile.fileHandle,
@@ -203,6 +238,7 @@ function EditorPage() {
       isCollaborative,
       projectCtx,
       fileCtx,
+      roomId,
     ]
   );
 
@@ -298,3 +334,4 @@ function EditorPage() {
 }
 
 export default EditorPage;
+  

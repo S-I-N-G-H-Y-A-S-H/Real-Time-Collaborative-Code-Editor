@@ -13,7 +13,10 @@ class SocketService {
     this.participantsHandler = null;
     this.viewHandler = null;
     this.projectActivatedHandler = null;
-    this.filesUpdatedHandler = null; // 🆕 FILE SYNC
+    this.filesUpdatedHandler = null;
+
+    // 🆕 EDITOR SYNC HANDLERS
+    this.editorContentHandler = null;
   }
 
   /* =========================
@@ -154,7 +157,7 @@ class SocketService {
   }
 
   /* =========================
-     🆕 FILE SYNC (CREATE / RENAME / DELETE)
+     FILE SYNC (CREATE / RENAME / DELETE)
      ========================= */
 
   onFilesUpdated(callback) {
@@ -178,6 +181,49 @@ class SocketService {
   }
 
   /* =========================
+     🆕 EDITOR REALTIME SYNC
+     ========================= */
+
+  emitEditorContentChange({ roomId, filePath, content }) {
+    if (!this.socket || !roomId || !filePath) return;
+
+    this.socket.emit("editor:content-change", {
+      roomId,
+      filePath,
+      content,
+    });
+  }
+
+  onEditorContentUpdate(callback) {
+    if (!callback) return;
+
+    this.connect();
+
+    if (this.editorContentHandler) {
+      this.socket.off(
+        "editor:content-update",
+        this.editorContentHandler
+      );
+    }
+
+    this.editorContentHandler = callback;
+    this.socket.on(
+      "editor:content-update",
+      callback
+    );
+  }
+
+  offEditorContentUpdate() {
+    if (!this.socket || !this.editorContentHandler) return;
+
+    this.socket.off(
+      "editor:content-update",
+      this.editorContentHandler
+    );
+    this.editorContentHandler = null;
+  }
+
+  /* =========================
      CLEANUP
      ========================= */
 
@@ -194,6 +240,7 @@ class SocketService {
     this.viewHandler = null;
     this.projectActivatedHandler = null;
     this.filesUpdatedHandler = null;
+    this.editorContentHandler = null;
   }
 }
 

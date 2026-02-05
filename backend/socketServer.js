@@ -66,13 +66,9 @@ async function broadcastParticipants(roomId) {
 }
 
 /* =========================================================
-   🔥 INTERNAL FILE SYNC ENDPOINT (NEW)
+   🔥 INTERNAL FILE SYNC ENDPOINT
    ========================================================= */
-/**
- * POST /internal/files-updated
- * body: { roomId, projectId, files }
- * Called ONLY by Express server (5000)
- */
+
 app.post("/internal/files-updated", (req, res) => {
   const { roomId, projectId, files } = req.body;
 
@@ -116,13 +112,8 @@ io.on("connection", (socket) => {
         User.findById(userId).lean(),
       ]);
 
-      if (!room) {
-        socket.emit("join-error", { message: "Room not found" });
-        return;
-      }
-
-      if (!user) {
-        socket.emit("join-error", { message: "User not found" });
+      if (!room || !user) {
+        socket.emit("join-error", { message: "Room/User not found" });
         return;
       }
 
@@ -130,7 +121,6 @@ io.on("connection", (socket) => {
       const username =
         user.username || user.name || user.email || "User";
 
-      // 🔒 Ensure single active socket per user
       room.participants.forEach((p) => {
         if (p.userId === uid && p.socketId && p.socketId !== socket.id) {
           p.socketId = null;
@@ -181,9 +171,7 @@ io.on("connection", (socket) => {
         page: room.currentView,
       });
 
-      console.log(
-        `✅ user ${username} (${uid}) joined room ${room._id}`
-      );
+      console.log(`✅ ${username} joined room ${room._id}`);
     } catch (err) {
       console.error("auth-join error:", err);
       socket.emit("join-error", {
@@ -210,12 +198,28 @@ io.on("connection", (socket) => {
         roomId: String(roomId),
         page,
       });
-
-      console.log(`🧭 View synced to "${page}" for room ${roomId}`);
     } catch (err) {
       console.error("sync-view error:", err);
     }
   });
+
+  /* =========================================================
+     🆕 REALTIME EDITOR SYNC
+     ========================================================= */
+  socket.on(
+    "editor:content-change",
+    ({ roomId, filePath, content }) => {
+      if (!roomId || !filePath) return;
+
+      // Broadcast to everyone EXCEPT sender
+      socket.to(String(roomId)).emit("editor:content-update", {
+        roomId,
+        filePath,
+        content,
+        from: socket.id,
+      });
+    }
+  );
 
   /* ---------- LEAVE / DISCONNECT ---------- */
   socket.on("leave-room", async () => {
