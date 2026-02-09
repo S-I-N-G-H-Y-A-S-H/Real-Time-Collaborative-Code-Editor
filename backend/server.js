@@ -23,9 +23,15 @@ const server = http.createServer(app);
    ========================= */
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: [
+      "http://localhost:5173",
+      "http://10.187.149.212:5173",
+    ],
+    methods: ["GET", "POST"],
+    credentials: true,
   },
 });
+
 
 // 🔑 Make io available everywhere (controllers, routes)
 app.set("io", io);
@@ -53,7 +59,17 @@ io.on("connection", (socket) => {
 /* =========================
    MIDDLEWARE
    ========================= */
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://10.187.149.212:5173",
+      "http://10.187.149.139:5173", // GUEST IP
+    ],
+    credentials: true,
+  })
+);
+
 app.use(bodyParser.json());
 
 /* =========================
@@ -125,8 +141,9 @@ mongoose
     console.log("MongoDB Connected");
     await startCleanupScheduler();
 
-    server.listen(process.env.PORT || 5000, () => {
-      console.log("Server running with Socket.IO");
+    server.listen(process.env.PORT || 5000, "0.0.0.0", () => {
+      console.log("Server running on 0.0.0.0 with Socket.IO");
     });
+
   })
   .catch(console.error);
