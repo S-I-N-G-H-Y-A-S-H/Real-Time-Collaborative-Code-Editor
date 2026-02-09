@@ -20,6 +20,11 @@ class SocketService {
 
     // 🆕 execution sync
     this.executionOutputHandler = null;
+
+      // 🆕 tab sync
+    this.tabOpenHandler = null;
+    this.tabCloseHandler = null;
+
   }
 
   /* =========================
@@ -221,6 +226,70 @@ class SocketService {
   }
 
   /* =========================
+   🆕 TAB SYNC
+   ========================= */
+
+  emitTabOpen({ roomId, filePath }) {
+    if (!this.socket || !roomId || !filePath) return;
+
+    this.socket.emit("tabs:open", {
+      roomId,
+      filePath,
+    });
+  }
+
+  emitTabClose({ roomId, filePath }) {
+    if (!this.socket || !roomId || !filePath) return;
+
+    this.socket.emit("tabs:close", {
+      roomId,
+      filePath,
+    });
+  }
+
+  onTabOpen(callback) {
+  if (!callback) return;
+
+  this.connect();
+
+  if (this.tabOpenHandler) {
+    this.socket.off("tabs:open", this.tabOpenHandler);
+  }
+
+  this.tabOpenHandler = callback;
+  this.socket.on("tabs:open", callback);
+}
+
+offTabOpen() {
+  if (!this.socket || !this.tabOpenHandler) return;
+
+  this.socket.off("tabs:open", this.tabOpenHandler);
+  this.tabOpenHandler = null;
+}
+
+onTabClose(callback) {
+  if (!callback) return;
+
+  this.connect();
+
+  if (this.tabCloseHandler) {
+    this.socket.off("tabs:close", this.tabCloseHandler);
+  }
+
+  this.tabCloseHandler = callback;
+  this.socket.on("tabs:close", callback);
+}
+
+offTabClose() {
+  if (!this.socket || !this.tabCloseHandler) return;
+
+  this.socket.off("tabs:close", this.tabCloseHandler);
+  this.tabCloseHandler = null;
+}
+
+
+
+  /* =========================
      🆕 EXECUTION SYNC
      ========================= */
 
@@ -279,6 +348,9 @@ class SocketService {
     this.filesUpdatedHandler = null;
     this.editorContentHandler = null;
     this.executionOutputHandler = null;
+    this.tabOpenHandler = null;
+    this.tabCloseHandler = null;
+
   }
 }
 

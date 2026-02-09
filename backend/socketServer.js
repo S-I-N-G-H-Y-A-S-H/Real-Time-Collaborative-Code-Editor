@@ -228,6 +228,29 @@ io.on("connection", (socket) => {
   );
 
   /* =========================================================
+   🆕 TAB SYNC (OPEN / CLOSE)
+   ========================================================= */
+
+  // Open tab
+  socket.on("tabs:open", ({ roomId, filePath }) => {
+    if (!roomId || !filePath) return;
+
+    // Relay to everyone except sender
+    socket.to(String(roomId)).emit("tabs:open", {
+      filePath,
+    });
+  });
+
+  // Close tab
+  socket.on("tabs:close", ({ roomId, filePath }) => {
+    if (!roomId || !filePath) return;
+
+    socket.to(String(roomId)).emit("tabs:close", {
+      filePath,
+    });
+  });
+
+  /* =========================================================
      ✅ CODE EXECUTION SYNC (EXEC-SERVER)
      ========================================================= */
   socket.on(

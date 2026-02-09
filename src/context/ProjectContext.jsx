@@ -42,6 +42,13 @@ export function ProjectProvider({ children }) {
   const [filesByPath, setFilesByPath] = useState({});
   const [activeFilePath, setActiveFilePath] = useState(null);
 
+    /* =========================
+     🆕 TAB STATE (COLLAB)
+     ========================= */
+
+  const [openFilePaths, setOpenFilePaths] = useState([]);
+
+
   /* =========================
      🧠 VIRTUAL FOLDERS
      ========================= */
@@ -67,16 +74,21 @@ export function ProjectProvider({ children }) {
   };
 
   function normalizeFiles(files = []) {
-    const map = {};
-    files.forEach((f) => {
-      const normalized = normalizePath(f.path);
-      map[normalized] = {
-        ...f,
-        path: normalized,
-      };
-    });
-    return map;
-  }
+  const map = {};
+  files.forEach((f) => {
+    const normalized = normalizePath(f.path);
+    const fileName = normalized.split("/").pop();
+
+    map[normalized] = {
+      ...f,
+      path: normalized,
+      fileName,          
+      modified: false,   
+    };
+  });
+  return map;
+}
+
 
   /* =========================
      🌳 TREE BUILDER
@@ -277,30 +289,113 @@ export function ProjectProvider({ children }) {
   }, []);
 
   /* =========================
+   🆕 TAB SOCKET SYNC
+   ========================= */
+
+  useEffect(() => {
+    if (!roomId) return;
+
+    socketService.onTabOpen(({ filePath }) => {
+      const normalized = normalizePath(filePath);
+
+      setOpenFilePaths((prev) =>
+        prev.includes(normalized) ? prev : [...prev, normalized]
+      );
+
+      setActiveFilePath(normalized);
+    });
+
+    socketService.onTabClose(({ filePath }) => {
+      const normalized = normalizePath(filePath);
+
+      setOpenFilePaths((prev) =>
+        prev.filter((p) => p !== normalized)
+      );
+
+      setActiveFilePath((prev) =>
+        prev === normalized ? null : prev
+      );
+    });
+
+    return () => {
+      socketService.offTabOpen();
+      socketService.offTabClose();
+    };
+  }, [roomId]);
+
+
+  /* =========================
      FILE ACTIONS
      ========================= */
 
-  function openFile(path) {
-    setActiveFilePath(normalizePath(path));
-  }
+    /* =========================
+     🆕 TAB ACTIONS (STATE ONLY)
+     ========================= */
 
-  function updateFileContent(path, content) {
+    function openFileWithTab(path) {
     const normalized = normalizePath(path);
 
-    setFilesByPath((prev) => ({
-      ...prev,
-      [normalized]: { ...prev[normalized], content },
-    }));
+    // open tab locally
+    setOpenFilePaths((prev) =>
+      prev.includes(normalized) ? prev : [...prev, normalized]
+    );
 
-    if (roomId && project.id) {
-      socketService.socket?.emit("editor:content-change", {
+    // focus tab
+    setActiveFilePath(normalized);
+
+    // notify others
+    if (roomId) {
+      socketService.emitTabOpen({
         roomId,
-        projectId: project.id,
         filePath: normalized,
-        content,
       });
     }
   }
+
+
+    function closeFileTab(path) {
+    const normalized = normalizePath(path);
+
+    setOpenFilePaths((prev) =>
+      prev.filter((p) => p !== normalized)
+    );
+
+    setActiveFilePath((prev) => {
+      if (prev !== normalized) return prev;
+      return null;
+    });
+
+    if (roomId) {
+      socketService.emitTabClose({
+        roomId,
+        filePath: normalized,
+      });
+    }
+  }
+
+
+
+    function openFile(path) {
+      setActiveFilePath(normalizePath(path));
+    }
+
+    function updateFileContent(path, content) {
+      const normalized = normalizePath(path);
+
+      setFilesByPath((prev) => ({
+        ...prev,
+        [normalized]: { ...prev[normalized], content },
+      }));
+
+      if (roomId && project.id) {
+        socketService.socket?.emit("editor:content-change", {
+          roomId,
+          projectId: project.id,
+          filePath: normalized,
+          content,
+        });
+      }
+    }
 
     /* =========================
      💾 SAVE FILE (CTRL + S)
@@ -496,6 +591,19 @@ export function ProjectProvider({ children }) {
     [filesByPath, activeFilePath]
   );
 
+    /* =========================
+     🆕 OPEN FILES FOR TABS
+     ========================= */
+
+  const openFiles = useMemo(
+    () =>
+      openFilePaths
+        .map((p) => filesByPath[p])
+        .filter(Boolean),
+    [openFilePaths, filesByPath]
+  );
+
+
   /* =========================
      RESET
      ========================= */
@@ -518,12 +626,15 @@ export function ProjectProvider({ children }) {
         filesByPath,
         activeFilePath,
         activeFile,
+        openFiles,
         loading,
         error,
 
         createProject,
         loadProject,
         openFile,
+        openFileWithTab,
+        closeFileTab, 
         updateFileContent,
         saveFile,
 

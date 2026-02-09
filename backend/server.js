@@ -63,7 +63,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "http://10.187.149.212:5173",
+      "http://10.21.126.212:5173",
       "http://10.187.149.139:5173", // GUEST IP
     ],
     credentials: true,

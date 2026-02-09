@@ -51,7 +51,8 @@ function Sidebar() {
         canOpenFolder: false,
 
         openFolder: () => {},
-        openFile: (node) => projectCtx.openFile(node.path),
+        openFile: (node) => projectCtx.openFileWithTab(node.path),
+
 
         createFile: async (name, selectedItem) => {
           let basePath = "";

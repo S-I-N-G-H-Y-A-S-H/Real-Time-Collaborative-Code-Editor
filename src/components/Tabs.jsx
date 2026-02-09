@@ -1,15 +1,47 @@
 // src/components/Tabs.jsx
-import { useFile } from "../context/FileContext";
+import { useRef, useEffect } from "react";
+import "../styles/Tabs.css";
 import closeIcon from "../assets/close-tab.png";
 import dirtyIcon from "../assets/dirty-dot.png";
-import "../styles/Tabs.css";
 import { getFileIcon } from "../utils/fileIcons";
-import { useRef, useEffect } from "react";
+
+import { useFile } from "../context/FileContext";
+import { useProject } from "../context/ProjectContext";
+import { useRoomSync } from "../context/RoomSyncContext";
 
 function Tabs() {
-  const { currentFile, setCurrentFile, openFiles, closeFile } = useFile();
+  const { roomId } = useRoomSync();
+  const isCollaborative = !!roomId;
+
+  // local (single-user)
+  const fileCtx = useFile();
+
+  // collaborative
+  const projectCtx = useProject();
+
+  // unified state
+  const openFiles = isCollaborative
+    ? projectCtx.openFiles
+    : fileCtx.openFiles;
+
+  const activeFile = isCollaborative
+    ? projectCtx.activeFile
+    : fileCtx.currentFile;
+
+  // unified actions
+  const openTab = isCollaborative
+    ? (file) => projectCtx.openFileWithTab(file.path)
+    : (file) => fileCtx.setCurrentFile(file);
+
+  const closeTab = isCollaborative
+    ? (file) => projectCtx.closeFileTab(file.path)
+    : (file) => fileCtx.closeFile(file.fileHandle);
+
   const viewportRef = useRef(null);
 
+  /* =========================
+     TAB SCROLL / DRAG
+     ========================= */
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -19,7 +51,7 @@ function Tabs() {
     let scrollLeft;
 
     const onMouseDown = (e) => {
-      if (e.button !== 0) return; // left click only
+      if (e.button !== 0) return;
       isDragging = true;
       startX = e.pageX - viewport.offsetLeft;
       scrollLeft = viewport.scrollLeft;
@@ -34,7 +66,7 @@ function Tabs() {
       viewport.scrollLeft = scrollLeft - walk;
     };
 
-    const onMouseUp = () => {
+    const stopDrag = () => {
       isDragging = false;
       viewport.classList.remove("dragging");
     };
@@ -48,15 +80,15 @@ function Tabs() {
 
     viewport.addEventListener("mousedown", onMouseDown);
     viewport.addEventListener("mousemove", onMouseMove);
-    viewport.addEventListener("mouseup", onMouseUp);
-    viewport.addEventListener("mouseleave", onMouseUp);
+    viewport.addEventListener("mouseup", stopDrag);
+    viewport.addEventListener("mouseleave", stopDrag);
     viewport.addEventListener("wheel", onWheel, { passive: false });
 
     return () => {
       viewport.removeEventListener("mousedown", onMouseDown);
       viewport.removeEventListener("mousemove", onMouseMove);
-      viewport.removeEventListener("mouseup", onMouseUp);
-      viewport.removeEventListener("mouseleave", onMouseUp);
+      viewport.removeEventListener("mouseup", stopDrag);
+      viewport.removeEventListener("mouseleave", stopDrag);
       viewport.removeEventListener("wheel", onWheel);
     };
   }, []);
@@ -64,42 +96,46 @@ function Tabs() {
   return (
     <div className="tab-bar-viewport" ref={viewportRef}>
       <div className="tab-list">
-        {openFiles.map((file) => (
-          <div
-            key={file.fileHandle || file.fileName}
-            className={`tab ${
-              currentFile?.fileHandle === file.fileHandle ? "active-tab" : ""
-            }`}
-            onClick={() => setCurrentFile(file)}
-            title={file.fileName}
-          >
-            <img
-              src={getFileIcon(file.fileName)}
-              alt="File Icon"
-              className="tab-file-icon"
-            />
-            <span className="tab-filename">{file.fileName}</span>
+        {openFiles.map((file) => {
+          const isActive = isCollaborative
+            ? activeFile?.path === file.path
+            : activeFile?.fileHandle === file.fileHandle;
 
-            {/* Show dirty icon when modified */}
-            {file.modified && (
+          return (
+            <div
+              key={file.path || file.fileHandle}
+              className={`tab ${isActive ? "active-tab" : ""}`}
+              onClick={() => openTab(file)}
+              title={file.fileName}
+            >
               <img
-                src={dirtyIcon}
-                alt="Unsaved changes"
-                className="dirty-icon"
+                src={getFileIcon(file.fileName)}
+                alt="File Icon"
+                className="tab-file-icon"
               />
-            )}
 
-            <img
-              src={closeIcon}
-              alt="Close Tab"
-              className="close-tab-icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                closeFile(file.fileHandle); // ✅ fix: close by handle
-              }}
-            />
-          </div>
-        ))}
+              <span className="tab-filename">{file.fileName}</span>
+
+              {file.modified && (
+                <img
+                  src={dirtyIcon}
+                  alt="Unsaved changes"
+                  className="dirty-icon"
+                />
+              )}
+
+              <img
+                src={closeIcon}
+                alt="Close Tab"
+                className="close-tab-icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeTab(file);
+                }}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
