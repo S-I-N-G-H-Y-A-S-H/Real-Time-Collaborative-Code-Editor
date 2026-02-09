@@ -25,6 +25,8 @@ class SocketService {
     this.tabOpenHandler = null;
     this.tabCloseHandler = null;
 
+    // 🆕 file dirty sync
+    this.fileDirtyHandler = null;
   }
 
   /* =========================
@@ -286,6 +288,38 @@ offTabClose() {
   this.socket.off("tabs:close", this.tabCloseHandler);
   this.tabCloseHandler = null;
 }
+
+onFileDirty(callback) {
+  if (!callback) return;
+
+  this.connect();
+
+  if (this.fileDirtyHandler) {
+    this.socket.off("file:dirty", this.fileDirtyHandler);
+  }
+
+  this.fileDirtyHandler = callback;
+  this.socket.on("file:dirty", callback);
+}
+
+offFileDirty() {
+  if (!this.socket || !this.fileDirtyHandler) return;
+
+  this.socket.off("file:dirty", this.fileDirtyHandler);
+  this.fileDirtyHandler = null;
+}
+
+
+emitFileDirty({ roomId, filePath, dirty }) {
+  if (!this.socket || !roomId || !filePath) return;
+
+  this.socket.emit("file:dirty", {
+    roomId,
+    filePath,
+    dirty,
+  });
+}
+
 
 
 

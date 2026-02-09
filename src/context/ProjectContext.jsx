@@ -324,6 +324,31 @@ export function ProjectProvider({ children }) {
   }, [roomId]);
 
 
+      useEffect(() => {
+    if (!roomId) return;
+
+    socketService.onFileDirty(({ filePath, dirty }) => {
+      const normalized = normalizePath(filePath);
+
+      setFilesByPath((prev) => {
+        if (!prev[normalized]) return prev;
+
+        return {
+          ...prev,
+          [normalized]: {
+            ...prev[normalized],
+            modified: dirty,
+          },
+        };
+      });
+    });
+
+    return () => {
+      socketService.offFileDirty();
+    };
+  }, [roomId]);
+
+
   /* =========================
      FILE ACTIONS
      ========================= */
@@ -384,17 +409,26 @@ export function ProjectProvider({ children }) {
 
       setFilesByPath((prev) => ({
         ...prev,
-        [normalized]: { ...prev[normalized], content },
+        [normalized]: { ...prev[normalized], content ,modified:true},
       }));
 
-      if (roomId && project.id) {
-        socketService.socket?.emit("editor:content-change", {
-          roomId,
-          projectId: project.id,
-          filePath: normalized,
-          content,
-        });
-      }
+          // 🔁 sync editor content
+    if (roomId && project.id) {
+      socketService.emitEditorContentChange({
+        roomId,
+        filePath: normalized,
+        content,
+      });
+    }
+
+    // 🔴 sync dirty state
+    if (roomId) {
+      socketService.emitFileDirty({
+        roomId,
+        filePath: normalized,
+        dirty: true,
+      });
+    }
     }
 
     /* =========================
@@ -429,6 +463,24 @@ export function ProjectProvider({ children }) {
         const data = await res.json();
         throw new Error(data.error || "Save failed");
       }
+      // ✅ CLEAR DIRTY STATE LOCALLY
+      setFilesByPath((prev) => ({
+        ...prev,
+        [normalized]: {
+          ...prev[normalized],
+          modified: false,
+        },
+      }));
+
+      // ✅ NOTIFY OTHERS (COLLAB MODE)
+      if (roomId) {
+        socketService.emitFileDirty({
+          roomId,
+          filePath: normalized,
+          dirty: false,
+        });
+      }
+
     } catch (err) {
       console.error("saveFile error:", err);
     }

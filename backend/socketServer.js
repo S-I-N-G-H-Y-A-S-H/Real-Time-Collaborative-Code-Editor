@@ -227,6 +227,20 @@ io.on("connection", (socket) => {
     }
   );
 
+
+  /* =========================
+   🆕 FILE DIRTY SYNC
+   ========================= */
+  socket.on("file:dirty", ({ roomId, filePath, dirty }) => {
+    if (!roomId || !filePath) return;
+
+    socket.to(String(roomId)).emit("file:dirty", {
+      filePath,
+      dirty,
+    });
+  });
+
+
   /* =========================================================
    🆕 TAB SYNC (OPEN / CLOSE)
    ========================================================= */
