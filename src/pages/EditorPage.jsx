@@ -17,6 +17,8 @@ import SidebarPanel from "../components/SidebarPanel";
 import Footer from "../components/Footer";
 import TerminalComponent from "../components/Terminal";
 import Tabs from "../components/Tabs";
+import PermissionToast from "../components/PermissionToast";
+
 
 import getLangInfo from "../utils/getLanguageFromFilename";
 
@@ -29,7 +31,8 @@ function EditorPage() {
      MODE DETECTION
      ========================= */
 
-  const { roomId, currentView } = useRoomSync();
+  const { roomId, currentView, canWrite } = useRoomSync();
+  
   const isCollaborative = !!roomId;
 
   /* =========================
@@ -65,16 +68,37 @@ function EditorPage() {
 
   const [code, setCode] = useState("");
   const [showTerminal, setShowTerminal] = useState(false);
-
+  const [permissionMessage, setPermissionMessage] = useState(null);
+    
   const editorRef = useRef(null);
   const terminalExecuteRef = useRef(null);
   const terminalResetRef = useRef(null);
+  
+  const showPermissionMessage = (msg) => {
+  setPermissionMessage(msg);
+  setTimeout(() => {
+    setPermissionMessage(null);
+  }, 3000);
+  };
+
 
   const isApplyingRemoteChange = useRef(false);
 
   // 🧠 execution buffering (FIX)
   const terminalReadyRef = useRef(false);
   const pendingExecutionBuffer = useRef([]);
+
+
+
+  useEffect(() => {
+  const handler = (e) => {
+    showPermissionMessage(e.detail);
+  };
+
+  window.addEventListener("permission-denied", handler);
+  return () =>
+    window.removeEventListener("permission-denied", handler);
+}, []);
 
   /* =========================
      VIEW GUARD
@@ -192,6 +216,10 @@ function EditorPage() {
 
   const runCurrentFile = () => {
     if (!currentFile) return;
+    if (isCollaborative && !canWrite) {
+      showPermissionMessage("You need write access from the host.");
+      return;
+  }
     setShowTerminal(true);
 
     if (isCollaborative) {
@@ -229,6 +257,10 @@ function EditorPage() {
 
       if (modKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
+        if (isCollaborative && !canWrite) {
+        showPermissionMessage("You need write access from the host.");
+        return;
+      }
         if (isCollaborative && projectCtx.activeFilePath)
           projectCtx.saveFile(projectCtx.activeFilePath);
         else if (currentFile) fileCtx.saveFile(currentFile);
@@ -236,13 +268,17 @@ function EditorPage() {
 
       if (e.ctrlKey && e.key === "F5") {
         e.preventDefault();
+         if (isCollaborative && !canWrite) {
+          showPermissionMessage("You need write access from the host.");
+          return;
+        } 
         runCurrentFile();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentFile, isCollaborative]);
+  }, [currentFile, isCollaborative, canWrite]);
 
   /* =========================
      EDITOR CHANGE
@@ -251,6 +287,10 @@ function EditorPage() {
   const handleEditorChange = useCallback(
     (newCode) => {
       if (!currentFile) return;
+      if (isCollaborative && !canWrite) {
+        showPermissionMessage("You need write access from the host.");
+        return;
+      } // 🔒 BLOCK WRITE
       setCode(newCode ?? "");
 
       if (isCollaborative) {
@@ -270,7 +310,7 @@ function EditorPage() {
         fileCtx.updateFileContent(currentFile.fileHandle, newCode ?? "");
       }
     },
-    [currentFile, isCollaborative, projectCtx, fileCtx, roomId]
+    [currentFile, isCollaborative, projectCtx, fileCtx, roomId, canWrite]
   );
 
   const monacoLanguage = currentFile?.fileName
@@ -307,6 +347,7 @@ function EditorPage() {
                   }}
                 >
                   <Editor
+                    key={isCollaborative ? (canWrite ? "write" : "read") : "local"}
                     height="100%"
                     theme="vs-dark"
                     language={monacoLanguage}
@@ -320,6 +361,10 @@ function EditorPage() {
                       fontSize: 14,
                       minimap: { enabled: false },
                       scrollBeyondLastLine: false,
+                      readOnly: isCollaborative ? !canWrite : false,
+                      domReadOnly: isCollaborative ? !canWrite : false,
+                      cursorStyle: isCollaborative && !canWrite ? "block" : "line",
+
                     }}
                   />
                 </div>
@@ -344,7 +389,8 @@ function EditorPage() {
           </div>
         </div>
       </div>
-
+      <PermissionToast message={permissionMessage} />
+     
       <Footer />
     </div>
   );

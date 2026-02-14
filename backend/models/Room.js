@@ -4,6 +4,7 @@ const ParticipantSchema = new mongoose.Schema(
   {
     userId: { type: String, required: true },
     username: { type: String, default: "Unknown" },
+    permission: {type: String,enum: ["read", "write"],default: "read",},
     socketId: { type: String, default: null },
     online: { type: Boolean, default: false },
     lastActive: { type: Date, default: Date.now },

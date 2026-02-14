@@ -60,6 +60,7 @@ async function broadcastParticipants(roomId) {
     online: !!p.online,
     socketId: p.socketId || null,
     isHost: String(p.userId) === String(room.hostUserId),
+    permission: p.permission || "read",
     lastActive: p.lastActive || null,
   }));
 
@@ -139,6 +140,8 @@ io.on("connection", (socket) => {
         (p) => p.userId === uid
       );
 
+      const isHost = String(room.hostUserId) === uid;
+
       if (!participant) {
         participant = {
           userId: uid,
@@ -146,6 +149,9 @@ io.on("connection", (socket) => {
           socketId: socket.id,
           online: true,
           lastActive: new Date(),
+
+          // 🔐 permission logic
+          permission: isHost ? "write" : "read",
         };
         room.participants.push(participant);
       } else {
@@ -153,7 +159,13 @@ io.on("connection", (socket) => {
         participant.online = true;
         participant.lastActive = new Date();
         participant.username = username;
+
+        // 🔐 ensure host always has write
+        if (isHost) {
+          participant.permission = "write";
+        }
       }
+
 
       if (!room.currentView) {
         room.currentView = "welcome";
@@ -209,6 +221,46 @@ io.on("connection", (socket) => {
       console.error("sync-view error:", err);
     }
   });
+
+  /* =========================================================
+   🆕 PARTICIPANT PERMISSION CHANGE (HOST ONLY)
+   ========================================================= */
+  socket.on(
+    "participant:permission-change",
+      async ({ roomId, targetUserId, permission }) => {
+      try {
+        const { userId } = socket.data || {};
+        if (!userId || !roomId) return;
+
+      if (!["read", "write"].includes(permission)) return;
+
+      const room = await Room.findById(roomId);
+      if (!room) return;
+
+      // 🔒 Only host can change permissions
+      if (String(room.hostUserId) !== String(userId)) {
+        return;
+      }
+
+      const participant = room.participants.find(
+        (p) => String(p.userId) === String(targetUserId)
+      );
+
+      if (!participant) return;
+
+      participant.permission = permission;
+      participant.lastActive = new Date();
+
+      await room.save();
+
+      // 🔁 Broadcast updated participants list
+      await broadcastParticipants(roomId);
+    } catch (err) {
+      console.error("permission-change error:", err);
+    }
+  }
+);
+
 
   /* =========================================================
      REALTIME EDITOR SYNC

@@ -1,14 +1,21 @@
 // src/components/ParticipantsDropdown.jsx
 import { useEffect, useRef, useState } from "react";
+import { useRoomSync } from "../context/RoomSyncContext";
+import socketService from "../services/socketService";
 import "../styles/ParticipantsDropdown.css";
 
-export default function ParticipantsDropdown({ participants = [], maxShown = 6 }) {
+export default function ParticipantsDropdown({ maxShown = 6 }) {
+  const { participants, isHost, roomId } = useRoomSync();
+
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
 
   const currentUser =
     JSON.parse(localStorage.getItem("user") || "{}") || {};
 
+  /* =========================
+     CLOSE ON OUTSIDE CLICK
+     ========================= */
   useEffect(() => {
     const close = (e) =>
       wrapperRef.current &&
@@ -18,6 +25,19 @@ export default function ParticipantsDropdown({ participants = [], maxShown = 6 }
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, []);
+
+  /* =========================
+     PERMISSION CHANGE
+     ========================= */
+  const handlePermissionChange = (targetUserId, permission) => {
+    if (!isHost || !roomId) return;
+
+    socketService.socket?.emit("participant:permission-change", {
+      roomId,
+      targetUserId,
+      permission, // "read" | "write"
+    });
+  };
 
   const shown = participants.slice(0, maxShown);
   const moreCount = participants.length - shown.length;
@@ -29,8 +49,12 @@ export default function ParticipantsDropdown({ participants = [], maxShown = 6 }
         onClick={() => setOpen((v) => !v)}
       >
         👥
-        <span className="participants-count">{participants.length}</span>
-        <span className={`participants-caret ${open ? "open" : ""}`}>▾</span>
+        <span className="participants-count">
+          {participants.length}
+        </span>
+        <span className={`participants-caret ${open ? "open" : ""}`}>
+          ▾
+        </span>
       </button>
 
       {open && (
@@ -39,22 +63,73 @@ export default function ParticipantsDropdown({ participants = [], maxShown = 6 }
 
           <div className="participants-list">
             {shown.map((p) => {
-              const name = p.username || p.name || "Unknown";
+              const name = p.username || "Unknown";
               const isYou = p.userId === currentUser._id;
 
               return (
                 <div key={p.userId} className="participant-item">
-                  <div className="participant-avatar">
-                    {name[0]?.toUpperCase()}
+                  {/* LEFT SIDE */}
+                  <div className="participant-left">
+                    <div className="participant-avatar">
+                      {name[0]?.toUpperCase()}
+                    </div>
+
+                    <div className="participant-name">
+                      {name}
+
+                      {isYou && (
+                        <span className="participant-you">
+                          {" "}
+                          — you
+                        </span>
+                      )}
+
+                      {p.isHost && (
+                        <span className="participant-host">
+                          {" "}
+                          (host)
+                        </span>
+                      )}
+
+                      {/* 🔑 PERMISSION CONTROLS */}
+                      {!p.isHost && (
+                        <div className="permission-controls">
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={p.permission !== "write"}
+                              disabled
+                            />
+                            R
+                          </label>
+
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={p.permission === "write"}
+                              disabled={!isHost}
+                              onChange={() =>
+                                handlePermissionChange(
+                                  p.userId,
+                                  p.permission === "write"
+                                    ? "read"
+                                    : "write"
+                                )
+                              }
+                            />
+                            W
+                          </label>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="participant-name">
-                    {name}
-                    {isYou && <span className="participant-you"> — you</span>}
-                    {p.isHost && (
-                      <span className="participant-host"> (host)</span>
-                    )}
-                  </div>
+                  {/* STATUS DOT RIGHT */}
+                  <span
+                    className={`status-dot ${
+                      p.online ? "online" : "offline"
+                    }`}
+                  />
                 </div>
               );
             })}

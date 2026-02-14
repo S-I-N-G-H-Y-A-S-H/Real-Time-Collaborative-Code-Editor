@@ -23,10 +23,11 @@ export function RoomSyncProvider({ children }) {
   // 🆕 FILE SYNC PAYLOAD
   const [filesUpdate, setFilesUpdate] = useState(null);
 
+
   /* =========================
      SOCKET LISTENERS
      ========================= */
-
+  
   useEffect(() => {
     // View sync
     socketService.onViewSynced((payload) => {
@@ -37,10 +38,16 @@ export function RoomSyncProvider({ children }) {
 
     // Participants
     socketService.onParticipantsUpdate((data) => {
-      if (Array.isArray(data?.participants)) {
-        setParticipants(data.participants);
-      }
-    });
+    if (Array.isArray(data?.participants)) {
+      const normalized = data.participants.map((p) => ({
+        ...p,
+        permission: p.permission || "read", // ✅ default
+      }));
+
+      setParticipants(normalized);
+    }
+  });
+
 
     // Project activated
     socketService.onProjectActivated((payload) => {
@@ -139,6 +146,19 @@ export function RoomSyncProvider({ children }) {
     setCurrentView(page);
   };
 
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+
+  const myParticipant = participants.find(
+  (p) => p.userId === storedUser.id
+);
+
+
+
+  const myPermission = myParticipant?.permission || "read";
+
+  const canWrite = isHost || myPermission === "write";
+
+
   return (
     <RoomSyncContext.Provider
       value={{
@@ -148,6 +168,9 @@ export function RoomSyncProvider({ children }) {
         participants,
         activeProjectId,
         inRoom: !!roomId,
+        
+        myPermission,
+        canWrite,
 
         // 🆕 expose file updates
         filesUpdate,

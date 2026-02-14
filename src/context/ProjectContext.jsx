@@ -23,7 +23,7 @@ function normalizePath(path = "") {
 }
 
 export function ProjectProvider({ children }) {
-  const { roomId, activeProjectId, filesUpdate } = useRoomSync();
+  const { roomId, activeProjectId, filesUpdate, canWrite } = useRoomSync();
 
   /* =========================
      PROJECT STATE
@@ -436,6 +436,16 @@ export function ProjectProvider({ children }) {
      ========================= */
 
   async function saveFile(path) {
+    if (!canWrite) {
+  window.dispatchEvent(
+    new CustomEvent("permission-denied", {
+      detail: "You need write access from the host.",
+    })
+  );
+  return;
+}
+
+
     if (!project.id || !roomId || !path) return;
 
     const normalized = normalizePath(path);
@@ -489,6 +499,16 @@ export function ProjectProvider({ children }) {
 
 
   async function createFile(path) {
+    if (!canWrite) {
+  window.dispatchEvent(
+    new CustomEvent("permission-denied", {
+      detail: "You need write access from the host.",
+    })
+  );
+  return;
+}
+
+
     if (!project.id || !roomId) return;
 
     const normalized = normalizePath(path);
@@ -520,7 +540,14 @@ export function ProjectProvider({ children }) {
 
   async function renameItem(oldPath, newName, type) {
     if (type !== "file" || !project.id || !roomId) return;
-
+    if (!canWrite) {
+  window.dispatchEvent(
+    new CustomEvent("permission-denied", {
+      detail: "You need write access from the host.",
+    })
+  );
+  return;
+}
     const oldNorm = normalizePath(oldPath);
     const base = oldNorm.split("/").slice(0, -1).join("/");
     const newNorm = normalizePath(base ? `${base}/${newName}` : newName);
@@ -559,6 +586,15 @@ export function ProjectProvider({ children }) {
 
   async function deleteItem(path, type) {
     if (!project.id || !roomId) return;
+    if (!canWrite) {
+  window.dispatchEvent(
+    new CustomEvent("permission-denied", {
+      detail: "You need write access from the host.",
+    })
+  );
+  return;
+}
+
 
     const normalized = normalizePath(path);
 

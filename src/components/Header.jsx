@@ -30,7 +30,7 @@ function Header({
   } = useFile();
 
   const { editor } = useEditor();
-  const { participants } = useRoomSync(); // ✅ REAL participants
+  const { participants, canWrite } = useRoomSync();
 
   const toggleMenu = (menu) => {
     setOpenMenu(openMenu === menu ? null : menu);
@@ -54,6 +54,7 @@ function Header({
   };
 
   const handleSave = async () => {
+    if (!canWrite) return;
     if (currentFile) await saveFile(currentFile);
   };
 
