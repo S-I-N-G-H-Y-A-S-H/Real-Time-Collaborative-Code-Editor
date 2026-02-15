@@ -5,12 +5,7 @@ import { useFile } from "../context/FileContext";
 import { useProject } from "../context/ProjectContext";
 
 import file from "../assets/file-icon.png";
-import search from "../assets/search-icon.png";
-import extension from "../assets/extension-icon.png";
 import profile from "../assets/profile-icon.png";
-import settings from "../assets/settings-icon.png";
-import sourceControl from "../assets/source-control-icon.png";
-import runAndDebug from "../assets/run-and-debug-icon.png";
 import folderIcon from "../assets/open-folder.png";
 
 import collapseIcon from "../assets/collapseIcon.png";
@@ -124,16 +119,10 @@ function Sidebar() {
   const [selectedItem, setSelectedItem] = useState(null);
 
   const sectionsTop = [
-    { id: "explorer", icon: file, alt: "File Explorer" },
-    { id: "search", icon: search, alt: "Search" },
-    { id: "git", icon: sourceControl, alt: "Source Control" },
-    { id: "debug", icon: runAndDebug, alt: "Run and Debug" },
-    { id: "extensions", icon: extension, alt: "Extensions" },
-  ];
+  { id: "explorer", icon: file, alt: "File Explorer" },
+];
 
-  const sectionsBottom = [
-    { id: "settings", icon: settings, alt: "Settings" },
-  ];
+  const sectionsBottom = [];
 
   const handleConfirm = async (name) => {
     if (modalType === "file") {
@@ -165,20 +154,7 @@ function Sidebar() {
 
       {/* Bottom Icons */}
       <div className="sidebar-section bottom">
-        <ProfileButton icon={profile} />
-        {sectionsBottom.map((s) => (
-          <img
-            key={s.id}
-            src={s.icon}
-            alt={s.alt}
-            className={`sidebar-icon ${
-              activePanel === s.id ? "active" : ""
-            }`}
-            onClick={() =>
-              setActivePanel(activePanel === s.id ? null : s.id)
-            }
-          />
-        ))}
+      <ProfileButton icon={profile} />
       </div>
 
       {/* Explorer Panel */}

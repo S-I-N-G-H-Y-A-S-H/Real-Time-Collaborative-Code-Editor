@@ -5,7 +5,7 @@ import searchIcon from "../assets/search-icon.png";
 import { useFile } from "../context/FileContext";
 import { useEditor } from "../context/EditorContext";
 import { useRoomSync } from "../context/RoomSyncContext";
-
+import { useNavigate } from "react-router-dom";
 import ParticipantsDropdown from "./ParticipantsDropdown";
 import "../styles/Header.css";
 
@@ -36,6 +36,17 @@ function Header({
 
   const toggleMenu = (menu) => {
     setOpenMenu(openMenu === menu ? null : menu);
+  };
+
+  const { roomId, leaveRoom } = useRoomSync();
+  const navigate = useNavigate();
+
+  const handleLogoClick = () => {
+    if (roomId) {
+      leaveRoom(); // leave collaborative session properly
+    }
+
+    navigate("/");
   };
 
   const closeMenus = () => setOpenMenu(null);
@@ -129,7 +140,14 @@ function Header({
     <div className="header-wrapper" ref={headerRef}>
       {/* LEFT */}
       <div className="left-section">
-        <img src={logo} alt="Logo" className="logo-circle" />
+        <img
+          src={logo}
+          alt="Logo"
+          className="logo-circle"
+          onClick={handleLogoClick}
+          style={{ cursor: "pointer" }}
+        />
+
 
         <div className="menu-container">
           {/* File */}

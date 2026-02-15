@@ -1,20 +1,22 @@
-import '../styles/Footer.css';
-import wifiIcon from '../assets/wifi-icon.png';
-import notificationIcon from '../assets/notification-icon.png';
+// src/components/Footer.jsx
+import "../styles/Footer.css";
 
 function Footer() {
-    return (
-        <div className="footer">
-            <div className="footer-left">
-                <img src={wifiIcon} alt="WiFi" className="footer-icon" />
+  return (
+    <div className="footer">
+      <div className="footer-left">
+        <span className="footer-text">
+          CodeSync © {new Date().getFullYear()}
+        </span>
+      </div>
 
-            </div>
-
-            <div className="footer-right">
-                <img src={notificationIcon} alt="Notifications" className="footer-icon" />
-            </div>
-        </div>
-    );
+      <div className="footer-right">
+        <span className="footer-text">
+          
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export default Footer;
