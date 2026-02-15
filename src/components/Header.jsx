@@ -16,6 +16,8 @@ function Header({
   onToggleTerminal,
   onInviteClick,
   onJoinClick,
+  onDownloadProject,
+  showDownloadButton
 }) {
   const [openMenu, setOpenMenu] = useState(null);
   const headerRef = useRef(null);
@@ -232,6 +234,18 @@ function Header({
 
       {/* RIGHT */}
       <div className="right-section">
+
+        {/* Download button — only in collaborative mode */}
+        {showDownloadButton && (
+          <button
+            className="download-project-btn"
+            onClick={onDownloadProject}
+            title="Download current project"
+          >
+            ⬇ Download
+          </button>
+        )}
+
         <ParticipantsDropdown participants={participants} />
 
         <button className="invite-btn" onClick={onInviteClick}>Invite</button>

@@ -12,6 +12,7 @@ const {
   renameFile,
   deleteFile,
   saveFileContent,
+  downloadProject, 
 } = require("../controllers/projectController");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -85,6 +86,17 @@ router.delete(
   authMiddleware,
   deleteFile
 );
+
+/**
+ * GET /projects/:projectId/download
+ * Download full project as ZIP
+ */
+router.get(
+  "/:projectId/download",
+  authMiddleware,
+  downloadProject
+);
+
 
 /**
  * GET /projects/:id

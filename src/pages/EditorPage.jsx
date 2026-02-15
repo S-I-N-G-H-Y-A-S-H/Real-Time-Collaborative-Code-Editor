@@ -313,6 +313,42 @@ function EditorPage() {
     [currentFile, isCollaborative, projectCtx, fileCtx, roomId, canWrite]
   );
 
+  const handleDownloadProject = async () => {
+  if (!isCollaborative || !projectCtx.project?.id) return;
+
+  try {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(
+      `${import.meta.env.VITE_API_BASE}/projects/${projectCtx.project.id}/download`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error("Download failed");
+    }
+
+    const blob = await res.blob();
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${projectCtx.project.name}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Download error:", err);
+  }
+};
+
+
   const monacoLanguage = currentFile?.fileName
     ? getLangInfo(currentFile.fileName).monacoLang
     : "plaintext";
@@ -327,6 +363,8 @@ function EditorPage() {
         onRunCode={runCurrentFile}
         onNewTerminal={newTerminal}
         onToggleTerminal={() => setShowTerminal((p) => !p)}
+        onDownloadProject={handleDownloadProject}
+        showDownloadButton={isCollaborative}
       />
 
       <div className="body-layout">

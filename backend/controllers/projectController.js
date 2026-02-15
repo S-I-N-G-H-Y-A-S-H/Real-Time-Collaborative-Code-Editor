@@ -1,6 +1,6 @@
 const Project = require("../models/Project");
 const Room = require("../models/Room");
-
+const archiver = require("archiver");
 /* =========================
    SOCKET SERVER CONFIG
    ========================= */
@@ -328,5 +328,45 @@ exports.saveFileContent = async (req, res) => {
   } catch (err) {
     console.error("Save file content error:", err);
     res.status(500).json({ error: "Failed to save file" });
+  }
+};
+
+/* =========================================================
+   🆕 DOWNLOAD PROJECT AS ZIP
+   ========================================================= */
+
+exports.downloadProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    // Set headers for zip download
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${project.name}.zip`
+    );
+    res.setHeader("Content-Type", "application/zip");
+
+    const archive = archiver("zip", {
+      zlib: { level: 9 },
+    });
+
+    archive.pipe(res);
+
+    // Add each file preserving folder structure
+    for (const file of project.files) {
+      archive.append(file.content || "", {
+        name: file.path,
+      });
+    }
+
+    await archive.finalize();
+  } catch (err) {
+    console.error("Download project error:", err);
+    res.status(500).json({ error: "Failed to download project" });
   }
 };

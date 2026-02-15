@@ -127,3 +127,31 @@
 .join-btn:hover {
   background-color: #3a3a3a;
 }
+
+.header-collab-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Download button */
+.download-project-btn {
+  background-color: #2d2d2d;
+  color: #ccc;
+  border: 1px solid #444;
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.download-project-btn:hover {
+  background-color: #3c3c3c;
+  border-color: #666;
+  color: #fff;
+}
+
+.download-project-btn:active {
+  background-color: #1f1f1f;
+}
